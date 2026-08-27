@@ -90,3 +90,41 @@ def get_appointments():
         ]
 
     return appointments
+
+class AppointmentStatusUpdate(BaseModel):
+    status: str
+
+
+@router.patch("/{appointment_id}/status")
+def update_appointment_status(
+    appointment_id: int,
+    status_update: AppointmentStatusUpdate
+):
+    if status_update.status not in ["scheduled", "completed", "cancelled"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid status"
+        )
+
+    with engine.begin() as connection:
+        result = connection.execute(
+            text("""
+                UPDATE appointments
+                SET status = :status
+                WHERE id = :appointment_id
+            """),
+            {
+                "status": status_update.status,
+                "appointment_id": appointment_id
+            }
+        )
+
+        if result.rowcount == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="Appointment not found"
+            )
+
+    return {
+        "message": "Appointment status updated successfully"
+    }
