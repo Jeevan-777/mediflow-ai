@@ -1,12 +1,13 @@
 from fastapi import FastAPI
 from sqlalchemy import text
 from database import engine
-from routers import departments, doctors
+from routers import departments, doctors, patients
 
 app = FastAPI()
 
 app.include_router(departments.router)
 app.include_router(doctors.router)
+app.include_router(patients.router)
 
 
 @app.get("/")
