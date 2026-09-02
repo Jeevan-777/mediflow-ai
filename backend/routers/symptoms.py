@@ -3,6 +3,7 @@ import json
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from datetime import datetime
 from dotenv import load_dotenv
 from google import genai
 from sqlalchemy import text
@@ -25,6 +26,7 @@ router = APIRouter(
 
 class SymptomInput(BaseModel):
     symptoms: str
+    appointment_date: datetime
 
 
 @router.post("/analyze")
@@ -100,12 +102,21 @@ Patient symptoms:
                         ON doctors.id = appointments.doctor_id
                         AND appointments.status = 'scheduled'
                     WHERE doctors.department_id = :department_id
+                    AND doctors.id NOT IN (
+                        SELECT doctor_id
+                        FROM appointments
+                        WHERE appointment_date = :appointment_date
+                        AND status = 'scheduled'
+                    )
                     GROUP BY
                         doctors.id,
                         users.name,
                         doctors.experience_years
                 """),
-                {"department_id": department_id}
+                {
+                    "department_id": department_id,
+                    "appointment_date": symptom_data.appointment_date
+                }
             )
 
             doctors = []
