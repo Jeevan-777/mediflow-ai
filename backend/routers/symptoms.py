@@ -127,12 +127,14 @@ Patient symptoms:
                 ) - (
                     row.appointment_count * 5
                 )
+                estimated_waiting_time = row.appointment_count * 15
 
                 doctors.append({
                     "id": row.id,
                     "name": row.name,
                     "experience_years": row.experience_years,
                     "current_appointments": row.appointment_count,
+                    "estimated_waiting_time": estimated_waiting_time,
                     "score": score
                 })
 

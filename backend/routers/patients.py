@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from database import engine
+from dependencies import require_role
 
 router = APIRouter(
     prefix="/patients",
@@ -9,7 +10,7 @@ router = APIRouter(
 
 
 @router.get("/")
-def get_patients():
+def get_patients(current_user=Depends(require_role("patient"))):
     with engine.connect() as connection:
         result = connection.execute(
             text("""

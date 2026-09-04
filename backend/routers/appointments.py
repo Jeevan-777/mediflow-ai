@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from dependencies import require_role
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -20,7 +21,7 @@ class AppointmentCreate(BaseModel):
 
 
 @router.post("/")
-def create_appointment(appointment: AppointmentCreate):
+def create_appointment(appointment: AppointmentCreate,current_user=Depends(require_role("patient"))):
 
     try:
         with engine.begin() as connection:

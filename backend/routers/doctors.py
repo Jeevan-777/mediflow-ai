@@ -66,12 +66,14 @@ def recommend_doctor(department_id: int):
 
         for row in result:
             score = (row.experience_years * 10) - (row.appointment_count * 5)
+            estimated_waiting_time = row.appointment_count * 15
 
             doctors.append({
                 "id": row.id,
                 "name": row.name,
                 "experience_years": row.experience_years,
                 "current_appointments": row.appointment_count,
+                "estimated_waiting_time": estimated_waiting_time,
                 "score": score
             })
 
@@ -85,5 +87,6 @@ def recommend_doctor(department_id: int):
 
     return {
         "department_id": department_id,
-        "recommended_doctor": best_doctor
+        "recommended_doctor": best_doctor,
+        "all_doctors": doctors
     }
