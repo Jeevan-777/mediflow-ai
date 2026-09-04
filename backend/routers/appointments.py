@@ -95,11 +95,53 @@ def get_appointments():
 class AppointmentStatusUpdate(BaseModel):
     status: str
 
+@router.get("/doctor")
+def get_doctor_appointments(
+    current_user=Depends(require_role("doctor"))
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    appointments.id,
+                    patients.id AS patient_id,
+                    patient_users.name AS patient_name,
+                    appointments.appointment_date,
+                    appointments.status,
+                    appointments.symptoms
+                FROM appointments
+                JOIN patients
+                    ON appointments.patient_id = patients.id
+                JOIN users AS patient_users
+                    ON patients.user_id = patient_users.id
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+                WHERE doctors.user_id = :user_id
+                ORDER BY appointments.appointment_date
+            """),
+            {"user_id": current_user["user_id"]}
+        )
+
+        appointments = [
+            {
+                "id": row.id,
+                "patient_id": row.patient_id,
+                "patient_name": row.patient_name,
+                "appointment_date": str(row.appointment_date),
+                "status": row.status,
+                "symptoms": row.symptoms
+            }
+            for row in result
+        ]
+
+    return appointments
+
 
 @router.patch("/{appointment_id}/status")
 def update_appointment_status(
     appointment_id: int,
-    status_update: AppointmentStatusUpdate
+    status_update: AppointmentStatusUpdate,
+    current_user=Depends(require_role("doctor"))
 ):
     if status_update.status not in ["scheduled", "completed", "cancelled"]:
         raise HTTPException(
@@ -108,7 +150,28 @@ def update_appointment_status(
         )
 
     with engine.begin() as connection:
-        result = connection.execute(
+        appointment = connection.execute(
+            text("""
+                SELECT appointments.id
+                FROM appointments
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+                WHERE appointments.id = :appointment_id
+                AND doctors.user_id = :user_id
+            """),
+            {
+                "appointment_id": appointment_id,
+                "user_id": current_user["user_id"]
+            }
+        ).fetchone()
+
+        if not appointment:
+            raise HTTPException(
+                status_code=404,
+                detail="Appointment not found or access denied"
+            )
+
+        connection.execute(
             text("""
                 UPDATE appointments
                 SET status = :status
@@ -119,12 +182,6 @@ def update_appointment_status(
                 "appointment_id": appointment_id
             }
         )
-
-        if result.rowcount == 0:
-            raise HTTPException(
-                status_code=404,
-                detail="Appointment not found"
-            )
 
     return {
         "message": "Appointment status updated successfully"
