@@ -1,9 +1,12 @@
 import { useState } from "react";
 import "./App.css";
 import login_page from "./assets/Login_page.png";
+import PatientDashboard from "./pages/PatientDashboard";
 
 function App() {
   const [isRegister, setIsRegister] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(false);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,8 @@ function App() {
       alert(`Login successful! Welcome ${data.name}`);
 
       console.log("Logged in user:", data);
+
+      setLoggedIn(true);
     } catch (error) {
       console.error("Login error:", error);
       alert("Unable to connect to the server.");
@@ -54,6 +59,10 @@ function App() {
       setLoading(false);
     }
   };
+
+  if (loggedIn && localStorage.getItem("role") === "patient") {
+    return <PatientDashboard />;
+  }
 
   return (
     <div className="auth-page">
