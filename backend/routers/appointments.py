@@ -137,6 +137,52 @@ def get_doctor_appointments(
     return appointments
 
 
+@router.get("/patient")
+def get_patient_appointments(
+    current_user=Depends(require_role("patient"))
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    appointments.id,
+                    doctors.id AS doctor_id,
+                    doctor_users.name AS doctor_name,
+                    departments.name AS department,
+                    appointments.appointment_date,
+                    appointments.status,
+                    appointments.symptoms
+                FROM appointments
+                JOIN patients
+                    ON appointments.patient_id = patients.id
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+                JOIN users AS doctor_users
+                    ON doctors.user_id = doctor_users.id
+                JOIN departments
+                    ON doctors.department_id = departments.id
+                WHERE patients.user_id = :user_id
+                ORDER BY appointments.appointment_date
+            """),
+            {"user_id": current_user["user_id"]}
+        )
+
+        appointments = [
+            {
+                "id": row.id,
+                "doctor_id": row.doctor_id,
+                "doctor_name": row.doctor_name,
+                "department": row.department,
+                "appointment_date": str(row.appointment_date),
+                "status": row.status,
+                "symptoms": row.symptoms
+            }
+            for row in result
+        ]
+
+    return appointments
+
+
 @router.patch("/{appointment_id}/status")
 def update_appointment_status(
     appointment_id: int,
