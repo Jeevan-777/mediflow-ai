@@ -11,7 +11,13 @@
   min-height: 700px;
   position: relative;
   overflow: hidden;
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   color: #0f2d4a;
   background: #e8f4fb;
 }
@@ -142,14 +148,20 @@
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
   font-weight: 700;
-  box-shadow: inset 4px 0 0 #5de8e4, 0 2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    inset 4px 0 0 #5de8e4,
+    0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
 /* Decorative bottom spacer (pill/medical kit feel) */
 .sidebar-bottom-deco {
   height: 120px;
   flex-shrink: 0;
-  background: radial-gradient(ellipse at 50% 120%, rgba(93, 232, 228, 0.18) 0%, transparent 70%);
+  background: radial-gradient(
+    ellipse at 50% 120%,
+    rgba(93, 232, 228, 0.18) 0%,
+    transparent 70%
+  );
   margin-top: auto;
 }
 
@@ -365,7 +377,9 @@
   align-items: center;
   gap: 14px;
   box-shadow: 0 4px 14px rgba(15, 55, 100, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   cursor: default;
 }
 
@@ -948,4 +962,206 @@
   .patient-header-title span {
     font-size: 14px;
   }
+}
+
+.ai-result-card {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #cfe3f5;
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(20, 90, 140, 0.08);
+}
+
+.ai-result-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.ai-result-header span {
+  font-size: 24px;
+}
+
+.ai-result-header h3 {
+  margin: 0;
+  color: #102f4f;
+  font-size: 20px;
+}
+
+.ai-result-content {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.ai-result-content div {
+  padding: 14px;
+  background: #f7fbff;
+  border-radius: 12px;
+}
+
+.ai-result-content strong {
+  display: block;
+  color: #66809a;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.ai-result-content p {
+  margin: 0;
+  color: #12385b;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ai-disclaimer {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: #fff8e8;
+  border-radius: 10px;
+  color: #80621c;
+  font-size: 13px;
+}
+
+.book-recommended-button {
+  width: 100%;
+  margin-top: 18px;
+  height: 48px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #167bc1, #0b9bd7);
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.book-recommended-button:hover {
+  transform: translateY(-1px);
+}
+
+.booking-form {
+  margin-top: 20px;
+  padding: 22px;
+  border: 1px solid #cfe3f5;
+  border-radius: 16px;
+  background: #fafdff;
+}
+
+.booking-form h3 {
+  margin: 0 0 18px;
+  color: #12385b;
+  font-size: 20px;
+}
+
+.booking-doctor {
+  padding: 14px;
+  margin-bottom: 18px;
+  background: #eef7ff;
+  border-radius: 12px;
+}
+
+.booking-doctor strong {
+  display: block;
+  color: #66809a;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.booking-doctor p {
+  margin: 0 0 4px;
+  color: #12385b;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.booking-doctor span {
+  color: #66809a;
+  font-size: 13px;
+}
+
+.booking-form label {
+  display: block;
+  margin: 12px 0 7px;
+  color: #365b78;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.booking-form input {
+  width: 100%;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid #c9dff2;
+  border-radius: 10px;
+  background: white;
+  color: #12385b;
+  font-size: 14px;
+  outline: none;
+}
+
+.booking-form input:focus {
+  border-color: #1688d0;
+  box-shadow: 0 0 0 3px rgba(22, 136, 208, 0.12);
+}
+
+.booking-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.cancel-booking-button,
+.confirm-booking-button {
+  flex: 1;
+  height: 46px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancel-booking-button {
+  border: 1px solid #c9dff2;
+  background: white;
+  color: #42627d;
+}
+
+.confirm-booking-button {
+  border: none;
+  background: linear-gradient(135deg, #167bc1, #0b9bd7);
+  color: white;
+}
+
+/* Upcoming appointment card */
+.upcoming-appointment {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #dce9f5;
+  border-radius: 12px;
+  background: #fafdff;
+}
+
+.upcoming-appointment-doctor {
+  color: #0b2742;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.upcoming-appointment-department {
+  color: #587896;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.upcoming-appointment-date {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #1d6fb8;
+  font-size: 12.5px;
+  font-weight: 600;
 }

@@ -5,7 +5,9 @@ import PatientDashboard from "./pages/PatientDashboard";
 
 function App() {
   const [isRegister, setIsRegister] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(
+    !!localStorage.getItem("access_token"),
+  );
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -44,7 +44,9 @@ def get_patient_dashboard(
     current_user=Depends(require_role("patient"))
 ):
     with engine.connect() as connection:
-        result = connection.execute(
+
+        # Get patient information and appointment counts
+        patient_result = connection.execute(
             text("""
                 SELECT
                     patients.id AS patient_id,
@@ -85,19 +87,67 @@ def get_patient_dashboard(
             }
         ).fetchone()
 
-    if not result:
-        return {
-            "patient_id": None,
-            "name": None,
-            "email": None,
-            "upcoming_appointments": 0,
-            "completed_appointments": 0
-        }
+        if not patient_result:
+            return {
+                "patient_id": None,
+                "name": None,
+                "email": None,
+                "upcoming_appointments": 0,
+                "completed_appointments": 0,
+                "appointments": []
+            }
+
+        # Get upcoming appointments
+        appointment_result = connection.execute(
+            text("""
+                SELECT
+                    appointments.id,
+                    appointments.appointment_date,
+                    appointments.status,
+                    appointments.symptoms,
+                    users.name AS doctor_name,
+                    doctors.specialization,
+                    departments.name AS department
+                FROM appointments
+
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+
+                JOIN users
+                    ON doctors.user_id = users.id
+
+                JOIN departments
+                    ON doctors.department_id = departments.id
+
+                WHERE appointments.patient_id = :patient_id
+                  AND appointments.status = 'scheduled'
+                  AND appointments.appointment_date >= NOW()
+
+                ORDER BY appointments.appointment_date ASC
+            """),
+            {
+                "patient_id": patient_result.patient_id
+            }
+        )
+
+        appointments = [
+            {
+                "id": row.id,
+                "appointment_date": row.appointment_date.isoformat(),
+                "status": row.status,
+                "symptoms": row.symptoms,
+                "doctor_name": row.doctor_name,
+                "specialization": row.specialization,
+                "department": row.department
+            }
+            for row in appointment_result
+        ]
 
     return {
-        "patient_id": result.patient_id,
-        "name": result.name,
-        "email": result.email,
-        "upcoming_appointments": result.upcoming_appointments,
-        "completed_appointments": result.completed_appointments
+        "patient_id": patient_result.patient_id,
+        "name": patient_result.name,
+        "email": patient_result.email,
+        "upcoming_appointments": patient_result.upcoming_appointments,
+        "completed_appointments": patient_result.completed_appointments,
+        "appointments": appointments
     }

@@ -21,10 +21,30 @@ class AppointmentCreate(BaseModel):
 
 
 @router.post("/")
-def create_appointment(appointment: AppointmentCreate,current_user=Depends(require_role("patient"))):
-
+def create_appointment(
+    appointment: AppointmentCreate,
+    current_user=Depends(require_role("patient"))
+):
     try:
         with engine.begin() as connection:
+
+            patient = connection.execute(
+                text("""
+                    SELECT id
+                    FROM patients
+                    WHERE user_id = :user_id
+                """),
+                {
+                    "user_id": current_user["user_id"]
+                }
+            ).fetchone()
+
+            if not patient:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Patient profile not found"
+                )
+
             connection.execute(
                 text("""
                     INSERT INTO appointments
@@ -33,7 +53,7 @@ def create_appointment(appointment: AppointmentCreate,current_user=Depends(requi
                     (:patient_id, :doctor_id, :appointment_date, :symptoms)
                 """),
                 {
-                    "patient_id": appointment.patient_id,
+                    "patient_id": patient.id,
                     "doctor_id": appointment.doctor_id,
                     "appointment_date": appointment.appointment_date,
                     "symptoms": appointment.symptoms
@@ -49,6 +69,7 @@ def create_appointment(appointment: AppointmentCreate,current_user=Depends(requi
             status_code=400,
             detail="Doctor already has an appointment at this time"
         )
+
 
 @router.get("/")
 def get_appointments():
@@ -66,11 +87,16 @@ def get_appointments():
                     appointments.status,
                     appointments.symptoms
                 FROM appointments
-                JOIN patients ON appointments.patient_id = patients.id
-                JOIN users AS patient_users ON patients.user_id = patient_users.id
-                JOIN doctors ON appointments.doctor_id = doctors.id
-                JOIN users AS doctor_users ON doctors.user_id = doctor_users.id
-                JOIN departments ON doctors.department_id = departments.id
+                JOIN patients
+                    ON appointments.patient_id = patients.id
+                JOIN users AS patient_users
+                    ON patients.user_id = patient_users.id
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+                JOIN users AS doctor_users
+                    ON doctors.user_id = doctor_users.id
+                JOIN departments
+                    ON doctors.department_id = departments.id
                 ORDER BY appointments.appointment_date
             """)
         )
@@ -92,8 +118,10 @@ def get_appointments():
 
     return appointments
 
+
 class AppointmentStatusUpdate(BaseModel):
     status: str
+
 
 @router.get("/doctor")
 def get_doctor_appointments(
@@ -119,7 +147,9 @@ def get_doctor_appointments(
                 WHERE doctors.user_id = :user_id
                 ORDER BY appointments.appointment_date
             """),
-            {"user_id": current_user["user_id"]}
+            {
+                "user_id": current_user["user_id"]
+            }
         )
 
         appointments = [
@@ -164,7 +194,9 @@ def get_patient_appointments(
                 WHERE patients.user_id = :user_id
                 ORDER BY appointments.appointment_date
             """),
-            {"user_id": current_user["user_id"]}
+            {
+                "user_id": current_user["user_id"]
+            }
         )
 
         appointments = [
@@ -189,13 +221,18 @@ def update_appointment_status(
     status_update: AppointmentStatusUpdate,
     current_user=Depends(require_role("doctor"))
 ):
-    if status_update.status not in ["scheduled", "completed", "cancelled"]:
+    if status_update.status not in [
+        "scheduled",
+        "completed",
+        "cancelled"
+    ]:
         raise HTTPException(
             status_code=400,
             detail="Invalid status"
         )
 
     with engine.begin() as connection:
+
         appointment = connection.execute(
             text("""
                 SELECT appointments.id
