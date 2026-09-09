@@ -16,6 +16,7 @@ router = APIRouter(
 class AppointmentCreate(BaseModel):
     patient_id: int
     doctor_id: int
+    hospital_id: int
     appointment_date: datetime
     symptoms: str | None = None
 
@@ -45,12 +46,70 @@ def create_appointment(
                     detail="Patient profile not found"
                 )
 
+            hospital = connection.execute(
+                text("""
+                    SELECT id, name, address, city, phone
+                    FROM hospitals
+                    WHERE id = :hospital_id
+                """),
+                {
+                    "hospital_id": appointment.hospital_id
+                }
+            ).fetchone()
+
+            if not hospital:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Hospital not found"
+                )
+
+            doctor = connection.execute(
+                text("""
+                    SELECT
+                        doctors.id,
+                        users.name AS doctor_name,
+                        doctors.hospital_id,
+                        departments.name AS department
+                    FROM doctors
+                    JOIN users
+                        ON doctors.user_id = users.id
+                    JOIN departments
+                        ON doctors.department_id = departments.id
+                    WHERE doctors.id = :doctor_id
+                """),
+                {
+                    "doctor_id": appointment.doctor_id
+                }
+            ).fetchone()
+
+            if not doctor:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Doctor not found"
+                )
+
+            if doctor.hospital_id != appointment.hospital_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Selected doctor does not belong to the selected hospital"
+                )
+
             connection.execute(
                 text("""
                     INSERT INTO appointments
-                    (patient_id, doctor_id, appointment_date, symptoms)
+                    (
+                        patient_id,
+                        doctor_id,
+                        appointment_date,
+                        symptoms
+                    )
                     VALUES
-                    (:patient_id, :doctor_id, :appointment_date, :symptoms)
+                    (
+                        :patient_id,
+                        :doctor_id,
+                        :appointment_date,
+                        :symptoms
+                    )
                 """),
                 {
                     "patient_id": patient.id,
@@ -61,8 +120,18 @@ def create_appointment(
             )
 
         return {
-            "message": "Appointment created successfully"
+            "message": "Appointment created successfully",
+            "hospital_id": hospital.id,
+            "hospital_name": hospital.name,
+            "hospital_address": hospital.address,
+            "hospital_city": hospital.city,
+            "doctor_id": doctor.id,
+            "doctor_name": doctor.doctor_name,
+            "department": doctor.department
         }
+
+    except HTTPException:
+        raise
 
     except IntegrityError:
         raise HTTPException(
@@ -83,6 +152,10 @@ def get_appointments():
                     doctors.id AS doctor_id,
                     doctor_users.name AS doctor_name,
                     departments.name AS department,
+                    hospitals.id AS hospital_id,
+                    hospitals.name AS hospital_name,
+                    hospitals.address AS hospital_address,
+                    hospitals.city AS hospital_city,
                     appointments.appointment_date,
                     appointments.status,
                     appointments.symptoms
@@ -97,6 +170,8 @@ def get_appointments():
                     ON doctors.user_id = doctor_users.id
                 JOIN departments
                     ON doctors.department_id = departments.id
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
                 ORDER BY appointments.appointment_date
             """)
         )
@@ -109,6 +184,10 @@ def get_appointments():
                 "doctor_id": row.doctor_id,
                 "doctor_name": row.doctor_name,
                 "department": row.department,
+                "hospital_id": row.hospital_id,
+                "hospital_name": row.hospital_name,
+                "hospital_address": row.hospital_address,
+                "hospital_city": row.hospital_city,
                 "appointment_date": str(row.appointment_date),
                 "status": row.status,
                 "symptoms": row.symptoms
@@ -136,7 +215,11 @@ def get_doctor_appointments(
                     patient_users.name AS patient_name,
                     appointments.appointment_date,
                     appointments.status,
-                    appointments.symptoms
+                    appointments.symptoms,
+                    hospitals.id AS hospital_id,
+                    hospitals.name AS hospital_name,
+                    hospitals.address AS hospital_address,
+                    hospitals.city AS hospital_city
                 FROM appointments
                 JOIN patients
                     ON appointments.patient_id = patients.id
@@ -144,6 +227,8 @@ def get_doctor_appointments(
                     ON patients.user_id = patient_users.id
                 JOIN doctors
                     ON appointments.doctor_id = doctors.id
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
                 WHERE doctors.user_id = :user_id
                 ORDER BY appointments.appointment_date
             """),
@@ -159,7 +244,11 @@ def get_doctor_appointments(
                 "patient_name": row.patient_name,
                 "appointment_date": str(row.appointment_date),
                 "status": row.status,
-                "symptoms": row.symptoms
+                "symptoms": row.symptoms,
+                "hospital_id": row.hospital_id,
+                "hospital_name": row.hospital_name,
+                "hospital_address": row.hospital_address,
+                "hospital_city": row.hospital_city
             }
             for row in result
         ]
@@ -179,6 +268,11 @@ def get_patient_appointments(
                     doctors.id AS doctor_id,
                     doctor_users.name AS doctor_name,
                     departments.name AS department,
+                    hospitals.id AS hospital_id,
+                    hospitals.name AS hospital_name,
+                    hospitals.address AS hospital_address,
+                    hospitals.city AS hospital_city,
+                    hospitals.phone AS hospital_phone,
                     appointments.appointment_date,
                     appointments.status,
                     appointments.symptoms
@@ -191,6 +285,8 @@ def get_patient_appointments(
                     ON doctors.user_id = doctor_users.id
                 JOIN departments
                     ON doctors.department_id = departments.id
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
                 WHERE patients.user_id = :user_id
                 ORDER BY appointments.appointment_date
             """),
@@ -205,6 +301,11 @@ def get_patient_appointments(
                 "doctor_id": row.doctor_id,
                 "doctor_name": row.doctor_name,
                 "department": row.department,
+                "hospital_id": row.hospital_id,
+                "hospital_name": row.hospital_name,
+                "hospital_address": row.hospital_address,
+                "hospital_city": row.hospital_city,
+                "hospital_phone": row.hospital_phone,
                 "appointment_date": str(row.appointment_date),
                 "status": row.status,
                 "symptoms": row.symptoms

@@ -27,10 +27,30 @@ router = APIRouter(
 class SymptomInput(BaseModel):
     symptoms: str
     appointment_date: datetime
+    hospital_id: int
 
 
 @router.post("/analyze")
 def analyze_symptoms(symptom_data: SymptomInput):
+
+    # Check that the selected hospital exists
+    with engine.connect() as connection:
+        hospital_result = connection.execute(
+            text("""
+                SELECT id, name
+                FROM hospitals
+                WHERE id = :hospital_id
+            """),
+            {"hospital_id": symptom_data.hospital_id}
+        ).fetchone()
+
+    if not hospital_result:
+        raise HTTPException(
+            status_code=404,
+            detail="Hospital not found"
+        )
+
+    hospital_name = hospital_result.name
 
     prompt = f"""
 You are an AI assistant in an academic healthcare project called MediFlow AI.
@@ -87,6 +107,7 @@ Patient symptoms:
 
         department_id = department_result.id
 
+        # Find doctors only from the selected hospital
         with engine.connect() as connection:
             result = connection.execute(
                 text("""
@@ -102,6 +123,7 @@ Patient symptoms:
                         ON doctors.id = appointments.doctor_id
                         AND appointments.status = 'scheduled'
                     WHERE doctors.department_id = :department_id
+                    AND doctors.hospital_id = :hospital_id
                     AND doctors.id NOT IN (
                         SELECT doctor_id
                         FROM appointments
@@ -115,6 +137,7 @@ Patient symptoms:
                 """),
                 {
                     "department_id": department_id,
+                    "hospital_id": symptom_data.hospital_id,
                     "appointment_date": symptom_data.appointment_date
                 }
             )
@@ -127,6 +150,7 @@ Patient symptoms:
                 ) - (
                     row.appointment_count * 5
                 )
+
                 estimated_waiting_time = row.appointment_count * 15
 
                 doctors.append({
@@ -141,7 +165,7 @@ Patient symptoms:
         if not doctors:
             raise HTTPException(
                 status_code=404,
-                detail="No doctors found in the recommended department"
+                detail="No available doctors found in the recommended department at this hospital"
             )
 
         best_doctor = max(
@@ -150,6 +174,8 @@ Patient symptoms:
         )
 
         return {
+            "hospital_id": symptom_data.hospital_id,
+            "hospital_name": hospital_name,
             "symptoms": symptom_data.symptoms,
             **ai_result,
             "recommended_doctor": best_doctor
