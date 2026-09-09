@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./PatientDashboard.css";
 import patientDashboard from "../assets/PatientDashboard.png";
+import PatientAppointments from "./PatientAppointments";
 
 function PatientDashboard() {
   const [patient, setPatient] = useState(null);
@@ -12,6 +13,7 @@ function PatientDashboard() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
+  const [showAppointments, setShowAppointments] = useState(false);
 
   useEffect(() => {
     const fetchPatientDashboard = async () => {
@@ -119,6 +121,10 @@ function PatientDashboard() {
     });
   const weekRange = `${fmtDate(startOfWeek)} - ${fmtDate(endOfWeek)}`;
 
+  if (showAppointments) {
+    return <PatientAppointments />;
+  }
+
   return (
     <div className="patient-dashboard">
       {/* Decorative background image */}
@@ -167,7 +173,10 @@ function PatientDashboard() {
             Dashboard
           </button>
 
-          <button className="patient-nav-item">
+          <button
+            className="patient-nav-item"
+            onClick={() => setShowAppointments(true)}
+          >
             <span className="nav-icon">
               <svg
                 viewBox="0 0 24 24"
