@@ -21,6 +21,14 @@ class DoctorCreate(BaseModel):
     experience_years: int = 0
 
 
+class DoctorUpdate(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    department_id: int | None = None
+    specialization: str | None = None
+    experience_years: int | None = None
+
+
 @router.get("/")
 def get_doctors():
     with engine.connect() as connection:
@@ -32,7 +40,9 @@ def get_doctors():
                     users.email,
                     departments.name AS department,
                     doctors.specialization,
-                    doctors.experience_years
+                    doctors.experience_years,
+                    doctors.hospital_id,
+                    doctors.is_active
                 FROM doctors
                 JOIN users ON doctors.user_id = users.id
                 JOIN departments ON doctors.department_id = departments.id
@@ -46,7 +56,9 @@ def get_doctors():
                 "email": row.email,
                 "department": row.department,
                 "specialization": row.specialization,
-                "experience_years": row.experience_years
+                "experience_years": row.experience_years,
+                "hospital_id": row.hospital_id,
+                "is_active": bool(row.is_active)
             }
             for row in result
         ]
@@ -68,6 +80,7 @@ def get_hospital_doctors(
                     departments.name AS department,
                     doctors.specialization,
                     doctors.experience_years,
+                    doctors.is_active,
                     hospitals.id AS hospital_id,
                     hospitals.name AS hospital_name
                 FROM hospital_admins
@@ -93,6 +106,7 @@ def get_hospital_doctors(
                 "department": row.department,
                 "specialization": row.specialization,
                 "experience_years": row.experience_years,
+                "is_active": bool(row.is_active),
                 "hospital_id": row.hospital_id,
                 "hospital_name": row.hospital_name
             }
@@ -166,7 +180,8 @@ def add_doctor(
                         department_id,
                         specialization,
                         experience_years,
-                        hospital_id
+                        hospital_id,
+                        is_active
                     )
                     VALUES
                     (
@@ -174,7 +189,8 @@ def add_doctor(
                         :department_id,
                         :specialization,
                         :experience_years,
-                        :hospital_id
+                        :hospital_id,
+                        TRUE
                     )
                 """),
                 {
@@ -201,6 +217,185 @@ def add_doctor(
         )
 
 
+@router.patch("/hospital/{doctor_id}")
+def update_hospital_doctor(
+    doctor_id: int,
+    doctor: DoctorUpdate,
+    current_user=Depends(require_role("hospital_admin"))
+):
+    try:
+        with engine.begin() as connection:
+
+            hospital = connection.execute(
+                text("""
+                    SELECT hospital_id
+                    FROM hospital_admins
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": current_user["user_id"]}
+            ).fetchone()
+
+            if not hospital:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Hospital admin profile not found"
+                )
+
+            existing_doctor = connection.execute(
+                text("""
+                    SELECT
+                        doctors.id,
+                        doctors.user_id,
+                        doctors.hospital_id
+                    FROM doctors
+                    WHERE doctors.id = :doctor_id
+                    AND doctors.hospital_id = :hospital_id
+                """),
+                {
+                    "doctor_id": doctor_id,
+                    "hospital_id": hospital.hospital_id
+                }
+            ).fetchone()
+
+            if not existing_doctor:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Doctor not found in your hospital"
+                )
+
+            if doctor.department_id is not None:
+                department = connection.execute(
+                    text("""
+                        SELECT id
+                        FROM departments
+                        WHERE id = :department_id
+                    """),
+                    {"department_id": doctor.department_id}
+                ).fetchone()
+
+                if not department:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Department not found"
+                    )
+
+            update_fields = []
+            params = {
+                "doctor_id": doctor_id,
+                "user_id": existing_doctor.user_id
+            }
+
+            if doctor.name is not None:
+                update_fields.append("name = :name")
+                params["name"] = doctor.name
+
+            if doctor.email is not None:
+                update_fields.append("email = :email")
+                params["email"] = doctor.email
+
+            if update_fields:
+                connection.execute(
+                    text(f"""
+                        UPDATE users
+                        SET {", ".join(update_fields)}
+                        WHERE id = :user_id
+                    """),
+                    params
+                )
+
+            doctor_fields = []
+            doctor_params = {
+                "doctor_id": doctor_id
+            }
+
+            if doctor.department_id is not None:
+                doctor_fields.append("department_id = :department_id")
+                doctor_params["department_id"] = doctor.department_id
+
+            if doctor.specialization is not None:
+                doctor_fields.append("specialization = :specialization")
+                doctor_params["specialization"] = doctor.specialization
+
+            if doctor.experience_years is not None:
+                doctor_fields.append("experience_years = :experience_years")
+                doctor_params["experience_years"] = doctor.experience_years
+
+            if doctor_fields:
+                connection.execute(
+                    text(f"""
+                        UPDATE doctors
+                        SET {", ".join(doctor_fields)}
+                        WHERE id = :doctor_id
+                    """),
+                    doctor_params
+                )
+
+        return {
+            "message": "Doctor updated successfully"
+        }
+
+    except IntegrityError:
+        raise HTTPException(
+            status_code=400,
+            detail="A user with this email already exists"
+        )
+
+
+@router.patch("/hospital/{doctor_id}/deactivate")
+def deactivate_doctor(
+    doctor_id: int,
+    current_user=Depends(require_role("hospital_admin"))
+):
+    with engine.begin() as connection:
+
+        hospital = connection.execute(
+            text("""
+                SELECT hospital_id
+                FROM hospital_admins
+                WHERE user_id = :user_id
+            """),
+            {"user_id": current_user["user_id"]}
+        ).fetchone()
+
+        if not hospital:
+            raise HTTPException(
+                status_code=404,
+                detail="Hospital admin profile not found"
+            )
+
+        doctor = connection.execute(
+            text("""
+                SELECT id
+                FROM doctors
+                WHERE id = :doctor_id
+                AND hospital_id = :hospital_id
+            """),
+            {
+                "doctor_id": doctor_id,
+                "hospital_id": hospital.hospital_id
+            }
+        ).fetchone()
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor not found in your hospital"
+            )
+
+        connection.execute(
+            text("""
+                UPDATE doctors
+                SET is_active = FALSE
+                WHERE id = :doctor_id
+            """),
+            {"doctor_id": doctor_id}
+        )
+
+    return {
+        "message": "Doctor deactivated successfully"
+    }
+
+
 @router.get("/recommend/{department_id}")
 def recommend_doctor(department_id: int):
 
@@ -213,12 +408,17 @@ def recommend_doctor(department_id: int):
                     doctors.experience_years,
                     COUNT(appointments.id) AS appointment_count
                 FROM doctors
-                JOIN users ON doctors.user_id = users.id
+                JOIN users
+                    ON doctors.user_id = users.id
                 LEFT JOIN appointments
                     ON doctors.id = appointments.doctor_id
                     AND appointments.status = 'scheduled'
                 WHERE doctors.department_id = :department_id
-                GROUP BY doctors.id, users.name, doctors.experience_years
+                AND doctors.is_active = TRUE
+                GROUP BY
+                    doctors.id,
+                    users.name,
+                    doctors.experience_years
             """),
             {"department_id": department_id}
         )
@@ -226,7 +426,12 @@ def recommend_doctor(department_id: int):
         doctors = []
 
         for row in result:
-            score = (row.experience_years * 10) - (row.appointment_count * 5)
+            score = (
+                row.experience_years * 10
+            ) - (
+                row.appointment_count * 5
+            )
+
             estimated_waiting_time = row.appointment_count * 15
 
             doctors.append({
@@ -241,7 +446,7 @@ def recommend_doctor(department_id: int):
     if not doctors:
         raise HTTPException(
             status_code=404,
-            detail="No doctors found in this department"
+            detail="No active doctors found in this department"
         )
 
     best_doctor = max(

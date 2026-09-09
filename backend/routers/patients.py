@@ -3,7 +3,10 @@ from sqlalchemy import text
 from database import engine
 from dependencies import require_role
 
-router = APIRouter(prefix="/patients", tags=["Patients"])
+router = APIRouter(
+    prefix="/patients",
+    tags=["Patients"]
+)
 
 
 @router.get("/")
@@ -45,7 +48,6 @@ def get_patient_dashboard(
 ):
     with engine.connect() as connection:
 
-        # Get patient information and appointment counts
         patient_result = connection.execute(
             text("""
                 SELECT
@@ -56,6 +58,7 @@ def get_patient_dashboard(
                     COUNT(
                         CASE
                             WHEN appointments.status = 'scheduled'
+                            AND appointments.appointment_date >= NOW()
                             THEN appointments.id
                         END
                     ) AS upcoming_appointments,
@@ -97,7 +100,6 @@ def get_patient_dashboard(
                 "appointments": []
             }
 
-        # Get upcoming appointments
         appointment_result = connection.execute(
             text("""
                 SELECT
@@ -105,9 +107,19 @@ def get_patient_dashboard(
                     appointments.appointment_date,
                     appointments.status,
                     appointments.symptoms,
+
+                    doctors.id AS doctor_id,
                     users.name AS doctor_name,
                     doctors.specialization,
-                    departments.name AS department
+
+                    departments.name AS department,
+
+                    hospitals.id AS hospital_id,
+                    hospitals.name AS hospital_name,
+                    hospitals.address AS hospital_address,
+                    hospitals.city AS hospital_city,
+                    hospitals.phone AS hospital_phone
+
                 FROM appointments
 
                 JOIN doctors
@@ -118,6 +130,9 @@ def get_patient_dashboard(
 
                 JOIN departments
                     ON doctors.department_id = departments.id
+
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
 
                 WHERE appointments.patient_id = :patient_id
                   AND appointments.status = 'scheduled'
@@ -136,9 +151,17 @@ def get_patient_dashboard(
                 "appointment_date": row.appointment_date.isoformat(),
                 "status": row.status,
                 "symptoms": row.symptoms,
+
+                "doctor_id": row.doctor_id,
                 "doctor_name": row.doctor_name,
                 "specialization": row.specialization,
-                "department": row.department
+                "department": row.department,
+
+                "hospital_id": row.hospital_id,
+                "hospital_name": row.hospital_name,
+                "hospital_address": row.hospital_address,
+                "hospital_city": row.hospital_city,
+                "hospital_phone": row.hospital_phone
             }
             for row in appointment_result
         ]
