@@ -6,6 +6,8 @@ import PatientAppointments from "./PatientAppointments";
 function PatientDashboard() {
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [hospitals, setHospitals] = useState([]);
+  const [selectedHospital, setSelectedHospital] = useState("");
   const [symptoms, setSymptoms] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -52,6 +54,27 @@ function PatientDashboard() {
     fetchPatientDashboard();
   }, []);
 
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:8000/hospitals/");
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || "Failed to load hospitals");
+        }
+
+        setHospitals(data);
+      } catch (error) {
+        console.error("Hospitals error:", error);
+        alert("Unable to load hospitals.");
+      }
+    };
+
+    fetchHospitals();
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("access_token");
     localStorage.removeItem("user_id");
@@ -63,8 +86,16 @@ function PatientDashboard() {
   };
 
   const handleAnalyzeSymptoms = async () => {
+    if (!selectedHospital) {
+      alert("Please select a hospital first.");
+      return;
+    }
     if (!symptoms.trim()) {
       alert("Please describe your symptoms first.");
+      return;
+    }
+    if (!appointmentDate || !appointmentTime) {
+      alert("Please select your preferred appointment date and time.");
       return;
     }
 
@@ -82,7 +113,8 @@ function PatientDashboard() {
         },
         body: JSON.stringify({
           symptoms: symptoms,
-          appointment_date: new Date().toISOString(),
+          appointment_date: `${appointmentDate}T${appointmentTime}:00`,
+          hospital_id: Number(selectedHospital),
         }),
       });
 
@@ -284,7 +316,7 @@ function PatientDashboard() {
           {/* Greeting area — sits directly on the dashboard background */}
           <div className="patient-greeting-area">
             <div className="greeting-text">
-              <h1>Good morning, {loading ? "..." : name} &#x1F44B;</h1>
+              <h1>Hello, {loading ? "..." : name} &#x1F44B;</h1>
               <p>Your health, our priority</p>
             </div>
           </div>
@@ -343,6 +375,43 @@ function PatientDashboard() {
           {/* Symptoms Section */}
           <section className="symptom-section">
             <h2>How can we help?</h2>
+            <div style={{ marginBottom: "20px" }}>
+              <label
+                style={{
+                  display: "block",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                }}
+              >
+                Select Hospital
+              </label>
+
+              <select
+                value={selectedHospital}
+                onChange={(e) => {
+                  setSelectedHospital(e.target.value);
+                  setAnalysisResult(null);
+                  setAiResult(null);
+                  setShowBookingForm(false);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  borderRadius: "8px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "15px",
+                  backgroundColor: "#fff",
+                }}
+              >
+                <option value="">Choose a hospital</option>
+
+                {hospitals.map((hospital) => (
+                  <option key={hospital.id} value={hospital.id}>
+                    {hospital.name} — {hospital.city}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <textarea
               className="symptom-input"
@@ -350,6 +419,73 @@ function PatientDashboard() {
               value={symptoms}
               onChange={(e) => setSymptoms(e.target.value)}
             />
+            <div
+              style={{
+                display: "flex",
+                gap: "15px",
+                marginTop: "15px",
+                marginBottom: "20px",
+              }}
+            >
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Preferred Date
+                </label>
+
+                <input
+                  type="date"
+                  value={appointmentDate}
+                  onChange={(e) => {
+                    setAppointmentDate(e.target.value);
+                    setAiResult(null);
+                    setAnalysisResult(null);
+                  }}
+                  min={new Date().toISOString().split("T")[0]}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "15px",
+                  }}
+                />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Preferred Time
+                </label>
+
+                <input
+                  type="time"
+                  value={appointmentTime}
+                  onChange={(e) => {
+                    setAppointmentTime(e.target.value);
+                    setAiResult(null);
+                    setAnalysisResult(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "15px",
+                  }}
+                />
+              </div>
+            </div>
 
             <button
               className="analyze-button"
@@ -498,6 +634,7 @@ function PatientDashboard() {
                                 body: JSON.stringify({
                                   patient_id: patient?.id || 0,
                                   doctor_id: aiResult.recommended_doctor.id,
+                                  hospital_id: Number(selectedHospital),
                                   appointment_date: appointmentDateTime,
                                   symptoms: symptoms,
                                 }),
