@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from database import engine
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 router = APIRouter(
@@ -309,7 +309,7 @@ def get_hospital_appointments(
                 JOIN hospitals
                     ON doctors.hospital_id = hospitals.id
                 WHERE doctors.hospital_id = :hospital_id
-                ORDER BY appointments.appointment_date
+                ORDER BY appointments.appointment_date DESC
             """),
             {
                 "hospital_id": hospital.hospital_id
@@ -417,6 +417,74 @@ def get_hospital_stats(
         "active_doctors": doctor_stats.active_doctors,
         "total_appointments": appointment_stats.total_appointments,
         "todays_appointments": appointment_stats.todays_appointments
+    }
+
+@router.get("/hospital/chart")
+def get_hospital_appointment_chart(
+    current_user=Depends(require_role("hospital_admin"))
+):
+    with engine.connect() as connection:
+
+        hospital = connection.execute(
+            text("""
+                SELECT hospital_id
+                FROM hospital_admins
+                WHERE user_id = :user_id
+            """),
+            {
+                "user_id": current_user["user_id"]
+            }
+        ).fetchone()
+
+        if not hospital:
+            raise HTTPException(
+                status_code=404,
+                detail="Hospital admin profile not found"
+            )
+
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=6)
+
+        result = connection.execute(
+            text("""
+                SELECT
+                    DATE(appointments.appointment_date) AS appointment_day,
+                    COUNT(*) AS appointment_count
+                FROM appointments
+                JOIN doctors
+                    ON appointments.doctor_id = doctors.id
+                WHERE doctors.hospital_id = :hospital_id
+                AND DATE(appointments.appointment_date)
+                    BETWEEN :start_date AND :end_date
+                GROUP BY DATE(appointments.appointment_date)
+                ORDER BY appointment_day
+            """),
+            {
+                "hospital_id": hospital.hospital_id,
+                "start_date": start_date,
+                "end_date": end_date
+            }
+        )
+
+        appointment_counts = {
+            row.appointment_day: row.appointment_count
+            for row in result
+        }
+
+        chart_data = []
+
+        for i in range(7):
+            current_date = start_date + timedelta(days=i)
+
+            chart_data.append({
+                "date": str(current_date),
+                "day": current_date.strftime("%a"),
+                "count": appointment_counts.get(current_date, 0)
+            })
+
+    return {
+        "hospital_id": hospital.hospital_id,
+        "data": chart_data
     }
 
 
