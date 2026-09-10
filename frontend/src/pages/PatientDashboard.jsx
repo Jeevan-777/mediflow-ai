@@ -154,7 +154,9 @@ function PatientDashboard() {
   const weekRange = `${fmtDate(startOfWeek)} - ${fmtDate(endOfWeek)}`;
 
   if (showAppointments) {
-    return <PatientAppointments />;
+    return (
+      <PatientAppointments onBackToDashboard={() => setShowAppointments(false)} />
+    );
   }
 
   return (

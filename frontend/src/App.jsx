@@ -2,6 +2,7 @@ import { useState } from "react";
 import "./App.css";
 import login_page from "./assets/Login_page.png";
 import PatientDashboard from "./pages/PatientDashboard";
+import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
 
 function App() {
   const [isRegister, setIsRegister] = useState(false);
@@ -64,6 +65,10 @@ function App() {
 
   if (loggedIn && localStorage.getItem("role") === "patient") {
     return <PatientDashboard />;
+  }
+
+  if (loggedIn && localStorage.getItem("role") === "hospital_admin") {
+    return <HospitalAdminDashboard />;
   }
 
   return (
