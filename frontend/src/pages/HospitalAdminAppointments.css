@@ -1,0 +1,123 @@
+.hospital-admin-appointments {
+  width: 100%;
+}
+
+.appointments-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.appointments-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #17324d;
+}
+
+.appointments-page-header p {
+  margin: 7px 0 0;
+  color: #71869a;
+  font-size: 14px;
+}
+
+.appointments-content {
+  margin-top: 42px;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 25px rgba(71, 126, 153, 0.08);
+}
+
+.appointments-section-header h2 {
+  margin: 0;
+  font-size: 19px;
+  color: #17324d;
+}
+
+.appointments-section-header p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #71869a;
+}
+
+.admin-appointments-table-wrapper {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+.admin-appointments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admin-appointments-table th {
+  padding: 13px 12px;
+  text-align: left;
+  color: #71869a;
+  font-size: 11px;
+  font-weight: 600;
+  border-bottom: 1px solid #e7eef2;
+  white-space: nowrap;
+}
+
+.admin-appointments-table td {
+  padding: 16px 12px;
+  color: #304b63;
+  border-bottom: 1px solid #edf2f5;
+  white-space: nowrap;
+}
+
+.admin-appointments-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.appointment-patient {
+  font-weight: 600;
+  color: #17324d;
+}
+
+.admin-appointment-status {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.admin-appointment-status.scheduled {
+  background: #e4f5f7;
+  color: #147d91;
+}
+
+.admin-appointment-status.completed {
+  background: #e8f6ed;
+  color: #2f8f55;
+}
+
+.admin-appointment-status.cancelled {
+  background: #fdecec;
+  color: #d45b5b;
+}
+
+.appointments-loading,
+.appointments-empty {
+  padding: 40px 10px;
+  text-align: center;
+  color: #71869a;
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .appointments-content {
+    padding: 18px;
+  }
+
+  .appointments-page-header h1 {
+    font-size: 24px;
+  }
+}

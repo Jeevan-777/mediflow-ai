@@ -13,6 +13,7 @@ import { Line } from "react-chartjs-2";
 import "./HospitalAdminDashboard.css";
 import backgroundImage from "../assets/HospitalAdminBackground.png";
 import HospitalAdminDoctors from "./HospitalAdminDoctors";
+import HospitalAdminAppointments from "./HospitalAdminAppointments";
 
 ChartJS.register(
   CategoryScale,
@@ -190,7 +191,12 @@ function HospitalAdminDashboard() {
             Doctors
           </button>
 
-          <button>Appointments</button>
+          <button
+            className={activePage === "appointments" ? "active" : ""}
+            onClick={() => setActivePage("appointments")}
+          >
+            Appointments
+          </button>
           <button>Departments</button>
           <button>Analytics</button>
           <button>Settings</button>
@@ -204,6 +210,8 @@ function HospitalAdminDashboard() {
       <main className="admin-main">
         {activePage === "doctors" ? (
           <HospitalAdminDoctors />
+        ) : activePage === "appointments" ? (
+          <HospitalAdminAppointments />
         ) : (
           <>
             <header className="admin-header">
