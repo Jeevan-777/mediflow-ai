@@ -395,6 +395,59 @@ def deactivate_doctor(
         "message": "Doctor deactivated successfully"
     }
 
+@router.patch("/hospital/{doctor_id}/activate")
+def activate_doctor(
+    doctor_id: int,
+    current_user=Depends(require_role("hospital_admin"))
+):
+    with engine.begin() as connection:
+        admin = connection.execute(
+            text("""
+                SELECT hospital_id
+                FROM hospital_admins
+                WHERE user_id = :user_id
+            """),
+            {"user_id": current_user["user_id"]}
+        ).fetchone()
+
+        if not admin:
+            raise HTTPException(
+                status_code=403,
+                detail="Hospital admin record not found"
+            )
+
+        doctor = connection.execute(
+            text("""
+                SELECT id
+                FROM doctors
+                WHERE id = :doctor_id
+                AND hospital_id = :hospital_id
+            """),
+            {
+                "doctor_id": doctor_id,
+                "hospital_id": admin.hospital_id
+            }
+        ).fetchone()
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor not found in your hospital"
+            )
+
+        connection.execute(
+            text("""
+                UPDATE doctors
+                SET is_active = TRUE
+                WHERE id = :doctor_id
+            """),
+            {"doctor_id": doctor_id}
+        )
+
+    return {
+        "message": "Doctor activated successfully"
+    }
+
 
 @router.get("/recommend/{department_id}")
 def recommend_doctor(department_id: int):

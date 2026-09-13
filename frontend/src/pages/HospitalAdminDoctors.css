@@ -257,3 +257,37 @@
   min-height: auto;
   box-sizing: border-box;
 }
+
+.doctor-status-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.doctor-toggle-button {
+  border: none;
+  padding: 7px 11px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.doctor-toggle-button.deactivate {
+  background: #fff0f0;
+  color: #d45b5b;
+}
+
+.doctor-toggle-button.deactivate:hover {
+  background: #fde0e0;
+}
+
+.doctor-toggle-button.activate {
+  background: #e8f6ed;
+  color: #2f8f55;
+}
+
+.doctor-toggle-button.activate:hover {
+  background: #d8f0e1;
+}

@@ -196,13 +196,56 @@ function HospitalAdminDoctors() {
                     <td>{doctor.experience_years} years</td>
 
                     <td>
-                      <span
-                        className={`doctor-status ${
-                          doctor.is_active ? "active" : "inactive"
-                        }`}
-                      >
-                        {doctor.is_active ? "Active" : "Inactive"}
-                      </span>
+                      <div className="doctor-status-actions">
+                        <span
+                          className={`doctor-status ${
+                            doctor.is_active ? "active" : "inactive"
+                          }`}
+                        >
+                          {doctor.is_active ? "Active" : "Inactive"}
+                        </span>
+
+                        <button
+                          className={`doctor-toggle-button ${
+                            doctor.is_active ? "deactivate" : "activate"
+                          }`}
+                          onClick={async () => {
+                            try {
+                              const token =
+                                localStorage.getItem("access_token");
+
+                              const action = doctor.is_active
+                                ? "deactivate"
+                                : "activate";
+
+                              const response = await fetch(
+                                `http://127.0.0.1:8000/doctors/hospital/${doctor.id}/${action}`,
+                                {
+                                  method: "PATCH",
+                                  headers: {
+                                    Authorization: `Bearer ${token}`,
+                                  },
+                                },
+                              );
+
+                              const data = await response.json();
+
+                              if (!response.ok) {
+                                throw new Error(
+                                  data.detail || `Failed to ${action} doctor`,
+                                );
+                              }
+
+                              await fetchDoctors();
+                            } catch (error) {
+                              console.error("Doctor status error:", error);
+                              alert(error.message);
+                            }
+                          }}
+                        >
+                          {doctor.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

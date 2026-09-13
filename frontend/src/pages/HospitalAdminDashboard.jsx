@@ -14,6 +14,9 @@ import "./HospitalAdminDashboard.css";
 import backgroundImage from "../assets/HospitalAdminBackground.png";
 import HospitalAdminDoctors from "./HospitalAdminDoctors";
 import HospitalAdminAppointments from "./HospitalAdminAppointments";
+import HospitalAdminDepartments from "./HospitalAdminDepartments";
+import HospitalAdminAnalytics from "./HospitalAdminAnalytics";
+import HospitalAdminSettings from "./HospitalAdminSettings";
 
 ChartJS.register(
   CategoryScale,
@@ -197,9 +200,24 @@ function HospitalAdminDashboard() {
           >
             Appointments
           </button>
-          <button>Departments</button>
-          <button>Analytics</button>
-          <button>Settings</button>
+          <button
+            className={activePage === "departments" ? "active" : ""}
+            onClick={() => setActivePage("departments")}
+          >
+            Departments
+          </button>
+          <button
+            className={activePage === "analytics" ? "active" : ""}
+            onClick={() => setActivePage("analytics")}
+          >
+            Analytics
+          </button>
+          <button
+            className={activePage === "settings" ? "active" : ""}
+            onClick={() => setActivePage("settings")}
+          >
+            Settings
+          </button>
         </nav>
 
         <button className="admin-logout" onClick={handleLogout}>
@@ -212,19 +230,36 @@ function HospitalAdminDashboard() {
           <HospitalAdminDoctors />
         ) : activePage === "appointments" ? (
           <HospitalAdminAppointments />
+        ) : activePage === "departments" ? (
+          <HospitalAdminDepartments />
+        ) : activePage === "analytics" ? (
+          <HospitalAdminAnalytics />
+        ) : activePage === "settings" ? (
+          <HospitalAdminSettings />
         ) : (
           <>
             <header className="admin-header">
               <div>
-                <h1>Hello, CityCare Admin</h1>
+                <h1>
+                  Hello, {localStorage.getItem("name") || "Hospital Admin"}
+                </h1>
                 <p>Here's what's happening at your hospital today.</p>
               </div>
 
               <div className="admin-profile">
-                <div className="profile-avatar">CA</div>
+                <div className="profile-avatar">
+                  {(localStorage.getItem("name") || "HA")
+                    .split(" ")
+                    .map((word) => word[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
 
                 <div>
-                  <strong>CityCare Admin</strong>
+                  <strong>
+                    {localStorage.getItem("name") || "Hospital Admin"}
+                  </strong>
                   <span>Hospital Administrator</span>
                 </div>
               </div>

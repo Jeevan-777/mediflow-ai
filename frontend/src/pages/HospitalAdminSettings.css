@@ -1,0 +1,97 @@
+.hospital-admin-settings {
+  width: 100%;
+}
+
+.settings-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #17324d;
+}
+
+.settings-page-header p {
+  margin: 7px 0 0;
+  color: #71869a;
+  font-size: 14px;
+}
+
+.settings-content {
+  margin-top: 42px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.settings-card {
+  padding: 26px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 20px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 25px rgba(71, 126, 153, 0.08);
+}
+
+.settings-card-header h2 {
+  margin: 0;
+  font-size: 19px;
+  color: #17324d;
+}
+
+.settings-card-header p {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: #71869a;
+}
+
+.settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.settings-field label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #587087;
+}
+
+.settings-value {
+  padding: 13px 14px;
+  background: rgba(249, 252, 253, 0.9);
+  border: 1px solid #e0eaee;
+  border-radius: 11px;
+  font-size: 13px;
+  color: #304b63;
+}
+
+.settings-loading {
+  padding: 35px 10px;
+  text-align: center;
+  color: #71869a;
+  font-size: 13px;
+}
+
+@media (max-width: 850px) {
+  .settings-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .settings-card {
+    padding: 20px;
+  }
+
+  .settings-page-header h1 {
+    font-size: 24px;
+  }
+}

@@ -124,6 +124,7 @@ Patient symptoms:
                         AND appointments.status = 'scheduled'
                     WHERE doctors.department_id = :department_id
                     AND doctors.hospital_id = :hospital_id
+                    AND doctors.is_active = TRUE
                     AND doctors.id NOT IN (
                         SELECT doctor_id
                         FROM appointments
