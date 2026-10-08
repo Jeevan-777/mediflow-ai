@@ -3,6 +3,7 @@ import "./App.css";
 import login_page from "./assets/Login_page.png";
 import PatientDashboard from "./pages/PatientDashboard";
 import HospitalAdminDashboard from "./pages/HospitalAdminDashboard";
+import DoctorDashboard from "./pages/DoctorDashboard";
 
 function App() {
   const [isRegister, setIsRegister] = useState(false);
@@ -10,9 +11,54 @@ function App() {
     !!localStorage.getItem("access_token"),
   );
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+
+    if (!name.trim() || !email.trim() || !password) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name,
+          email: email,
+          password: password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.detail || "Registration failed.");
+        return;
+      }
+
+      alert("Registration successful! Please login.");
+
+      setName("");
+      setEmail("");
+      setPassword("");
+      setIsRegister(false);
+    } catch (error) {
+      console.error("Registration error:", error);
+      alert("Unable to connect to the server.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -71,6 +117,10 @@ function App() {
     return <HospitalAdminDashboard />;
   }
 
+  if (loggedIn && localStorage.getItem("role") === "doctor") {
+    return <DoctorDashboard />;
+  }
+
   return (
     <div className="auth-page">
       <div className="auth-left">
@@ -96,7 +146,13 @@ function App() {
           </p>
 
           {isRegister && (
-            <input type="text" placeholder="Full Name" className="auth-input" />
+            <input
+              type="text"
+              placeholder="Full Name"
+              className="auth-input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           )}
 
           <input
@@ -115,21 +171,15 @@ function App() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          {isRegister && (
-            <select className="auth-input">
-              <option value="">Select Role</option>
-              <option value="patient">Patient</option>
-              <option value="doctor">Doctor</option>
-            </select>
-          )}
-
           <button
             className="auth-button"
-            onClick={isRegister ? undefined : handleLogin}
+            onClick={isRegister ? handleRegister : handleLogin}
             disabled={loading}
           >
             {isRegister
-              ? "Create Account"
+              ? loading
+                ? "Creating Account..."
+                : "Create Account"
               : loading
                 ? "Logging in..."
                 : "Login"}
@@ -137,7 +187,12 @@ function App() {
 
           <button
             className="switch-button"
-            onClick={() => setIsRegister(!isRegister)}
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setName("");
+              setEmail("");
+              setPassword("");
+            }}
           >
             {isRegister
               ? "Already have an account? Login"

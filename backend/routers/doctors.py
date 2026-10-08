@@ -449,6 +449,193 @@ def activate_doctor(
     }
 
 
+@router.get("/me")
+def get_my_doctor_profile(
+    current_user=Depends(require_role("doctor"))
+):
+    with engine.connect() as connection:
+        result = connection.execute(
+            text("""
+                SELECT
+                    doctors.id,
+                    users.id AS user_id,
+                    users.name,
+                    users.email,
+                    departments.name AS department,
+                    doctors.specialization,
+                    doctors.experience_years,
+                    doctors.hospital_id,
+                    hospitals.name AS hospital_name,
+                    doctors.is_active
+                FROM doctors
+                JOIN users
+                    ON doctors.user_id = users.id
+                JOIN departments
+                    ON doctors.department_id = departments.id
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
+                WHERE doctors.user_id = :user_id
+            """),
+            {
+                "user_id": current_user["user_id"]
+            }
+        ).fetchone()
+
+    if not result:
+        raise HTTPException(
+            status_code=404,
+            detail="Doctor profile not found"
+        )
+
+    return {
+        "id": result.id,
+        "user_id": result.user_id,
+        "name": result.name,
+        "email": result.email,
+        "department": result.department,
+        "specialization": result.specialization,
+        "experience_years": result.experience_years,
+        "hospital_id": result.hospital_id,
+        "hospital_name": result.hospital_name,
+        "is_active": bool(result.is_active)
+    }
+
+
+@router.get("/dashboard")
+def get_doctor_dashboard(
+    current_user=Depends(require_role("doctor"))
+):
+    with engine.connect() as connection:
+
+        doctor = connection.execute(
+            text("""
+                SELECT
+                    doctors.id,
+                    users.name,
+                    users.email,
+                    departments.name AS department,
+                    doctors.specialization,
+                    doctors.experience_years,
+                    doctors.hospital_id,
+                    hospitals.name AS hospital_name
+                FROM doctors
+                JOIN users
+                    ON doctors.user_id = users.id
+                JOIN departments
+                    ON doctors.department_id = departments.id
+                JOIN hospitals
+                    ON doctors.hospital_id = hospitals.id
+                WHERE doctors.user_id = :user_id
+            """),
+            {
+                "user_id": current_user["user_id"]
+            }
+        ).fetchone()
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor profile not found"
+            )
+
+        total_patients = connection.execute(
+            text("""
+                SELECT COUNT(DISTINCT patient_id)
+                FROM appointments
+                WHERE doctor_id = :doctor_id
+            """),
+            {
+                "doctor_id": doctor.id
+            }
+        ).scalar()
+
+        today_appointments = connection.execute(
+            text("""
+                SELECT
+                    appointments.id,
+                    appointments.appointment_date,
+                    appointments.symptoms,
+                    appointments.status,
+                    patients.id AS patient_id,
+                    users.name AS patient_name,
+                    patients.date_of_birth,
+                    patients.gender,
+                    patients.phone
+                FROM appointments
+                JOIN patients
+                    ON appointments.patient_id = patients.id
+                JOIN users
+                    ON patients.user_id = users.id
+                WHERE appointments.doctor_id = :doctor_id
+                AND DATE(appointments.appointment_date) = CURDATE()
+                ORDER BY appointments.appointment_date
+            """),
+            {
+                "doctor_id": doctor.id
+            }
+        ).fetchall()
+
+        completed_count = connection.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM appointments
+                WHERE doctor_id = :doctor_id
+                AND status = 'completed'
+            """),
+            {
+                "doctor_id": doctor.id
+            }
+        ).scalar()
+
+        upcoming_count = connection.execute(
+            text("""
+                SELECT COUNT(*)
+                FROM appointments
+                WHERE doctor_id = :doctor_id
+                AND status = 'scheduled'
+                AND appointment_date >= NOW()
+            """),
+            {
+                "doctor_id": doctor.id
+            }
+        ).scalar()
+
+        appointments = []
+
+        for row in today_appointments:
+            appointments.append({
+                "id": row.id,
+                "appointment_date": row.appointment_date,
+                "symptoms": row.symptoms,
+                "status": row.status,
+                "patient_id": row.patient_id,
+                "patient_name": row.patient_name,
+                "date_of_birth": row.date_of_birth,
+                "gender": row.gender,
+                "phone": row.phone
+            })
+
+    return {
+        "doctor": {
+            "id": doctor.id,
+            "name": doctor.name,
+            "email": doctor.email,
+            "department": doctor.department,
+            "specialization": doctor.specialization,
+            "experience_years": doctor.experience_years,
+            "hospital_id": doctor.hospital_id,
+            "hospital_name": doctor.hospital_name
+        },
+        "statistics": {
+            "total_patients": total_patients or 0,
+            "today_appointments": len(appointments),
+            "completed": completed_count or 0,
+            "upcoming": upcoming_count or 0
+        },
+        "appointments": appointments
+    }
+
+
 @router.get("/recommend/{department_id}")
 def recommend_doctor(department_id: int):
 
