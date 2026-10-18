@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from database import engine
 from dependencies import require_role
 from auth import hash_password
+from scheduler import optimize_replacement_doctor
 
 router = APIRouter(
     prefix="/doctors",
@@ -341,58 +342,191 @@ def update_hospital_doctor(
         )
 
 
+
+
 @router.patch("/hospital/{doctor_id}/deactivate")
 def deactivate_doctor(
     doctor_id: int,
     current_user=Depends(require_role("hospital_admin"))
 ):
-    with engine.begin() as connection:
+    reassigned = []
 
-        hospital = connection.execute(
-            text("""
-                SELECT hospital_id
-                FROM hospital_admins
-                WHERE user_id = :user_id
-            """),
-            {"user_id": current_user["user_id"]}
-        ).fetchone()
+    try:
+        with engine.begin() as connection:
+            hospital = connection.execute(
+                text("""
+                    SELECT hospital_id
+                    FROM hospital_admins
+                    WHERE user_id = :user_id
+                """),
+                {"user_id": current_user["user_id"]}
+            ).fetchone()
 
-        if not hospital:
-            raise HTTPException(
-                status_code=404,
-                detail="Hospital admin profile not found"
+            if not hospital:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Hospital admin profile not found"
+                )
+
+            doctor = connection.execute(
+                text("""
+                    SELECT id, hospital_id, department_id, is_active
+                    FROM doctors
+                    WHERE id = :doctor_id
+                      AND hospital_id = :hospital_id
+                    FOR UPDATE
+                """),
+                {
+                    "doctor_id": doctor_id,
+                    "hospital_id": hospital.hospital_id
+                }
+            ).fetchone()
+
+            if not doctor:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Doctor not found in your hospital"
+                )
+
+            if not doctor.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Doctor is already inactive"
+                )
+
+            appointments = connection.execute(
+                text("""
+                    SELECT id, appointment_date
+                    FROM appointments
+                    WHERE doctor_id = :doctor_id
+                      AND status = 'scheduled'
+                      AND appointment_date > NOW()
+                    ORDER BY appointment_date
+                    FOR UPDATE
+                """),
+                {"doctor_id": doctor_id}
+            ).fetchall()
+
+            for appointment in appointments:
+                busy_rows = connection.execute(
+                    text("""
+                        SELECT doctor_id
+                        FROM appointments
+                        WHERE appointment_date = :appointment_date
+                          AND status = 'scheduled'
+                    """),
+                    {
+                        "appointment_date": appointment.appointment_date
+                    }
+                ).fetchall()
+
+                busy_ids = {row.doctor_id for row in busy_rows}
+
+                candidates = connection.execute(
+                    text("""
+                        SELECT
+                            d.id,
+                            (
+                                SELECT COUNT(*)
+                                FROM appointments a
+                                WHERE a.doctor_id = d.id
+                                  AND a.status = 'scheduled'
+                            ) AS workload
+                        FROM doctors d
+                        WHERE d.hospital_id = :hospital_id
+                          AND d.department_id = :department_id
+                          AND d.is_active = TRUE
+                          AND d.id != :doctor_id
+                    """),
+                    {
+                        "hospital_id": doctor.hospital_id,
+                        "department_id": doctor.department_id,
+                        "doctor_id": doctor_id
+                    }
+                ).fetchall()
+
+                replacement_id = optimize_replacement_doctor(
+                    [
+                        {
+                            "id": row.id,
+                            "workload": row.workload,
+                            "is_active": True
+                        }
+                        for row in candidates
+                    ],
+                    busy_ids
+                )
+
+                if replacement_id is None:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"No replacement available for appointment "
+                            f"{appointment.id}. No changes were saved."
+                        )
+                    )
+
+                result = connection.execute(
+                    text("""
+                        UPDATE appointments
+                        SET doctor_id = :replacement_id,
+                            original_doctor_id =
+                                COALESCE(original_doctor_id, :old_doctor_id),
+                            reassignment_reason = 'Doctor deactivated',
+                            reassigned_at = CURRENT_TIMESTAMP
+                        WHERE id = :appointment_id
+                          AND doctor_id = :old_doctor_id
+                          AND status = 'scheduled'
+                    """),
+                    {
+                        "replacement_id": replacement_id,
+                        "old_doctor_id": doctor_id,
+                        "appointment_id": appointment.id
+                    }
+                )
+
+                if result.rowcount != 1:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            f"Appointment {appointment.id} changed "
+                            "during reassignment. No changes were saved."
+                        )
+                    )
+
+                reassigned.append({
+                    "appointment_id": appointment.id,
+                    "new_doctor_id": replacement_id
+                })
+
+            connection.execute(
+                text("""
+                    UPDATE doctors
+                    SET is_active = FALSE
+                    WHERE id = :doctor_id
+                      AND hospital_id = :hospital_id
+                """),
+                {
+                    "doctor_id": doctor_id,
+                    "hospital_id": hospital.hospital_id
+                }
             )
 
-        doctor = connection.execute(
-            text("""
-                SELECT id
-                FROM doctors
-                WHERE id = :doctor_id
-                AND hospital_id = :hospital_id
-            """),
-            {
-                "doctor_id": doctor_id,
-                "hospital_id": hospital.hospital_id
-            }
-        ).fetchone()
-
-        if not doctor:
-            raise HTTPException(
-                status_code=404,
-                detail="Doctor not found in your hospital"
+    except IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "A booking conflict prevented reassignment. "
+                "All changes were rolled back. Refresh availability "
+                "and try again."
             )
-
-        connection.execute(
-            text("""
-                UPDATE doctors
-                SET is_active = FALSE
-                WHERE id = :doctor_id
-            """),
-            {"doctor_id": doctor_id}
         )
 
     return {
-        "message": "Doctor deactivated successfully"
+        "message": "Doctor deactivated successfully",
+        "doctor_id": doctor_id,
+        "reassigned_count": len(reassigned),
+        "reassigned_appointments": reassigned
     }
 
 @router.patch("/hospital/{doctor_id}/activate")
@@ -698,4 +832,117 @@ def recommend_doctor(department_id: int):
         "department_id": department_id,
         "recommended_doctor": best_doctor,
         "all_doctors": doctors
+    }
+
+
+@router.get("/hospital/{doctor_id}/reschedule-preview")
+def preview_rescheduling(
+    doctor_id: int,
+    current_user=Depends(require_role("hospital_admin"))
+):
+    with engine.connect() as connection:
+        hospital = connection.execute(
+            text("""
+                SELECT hospital_id
+                FROM hospital_admins
+                WHERE user_id = :user_id
+            """),
+            {"user_id": current_user["user_id"]}
+        ).fetchone()
+
+        if not hospital:
+            raise HTTPException(
+                status_code=404,
+                detail="Hospital admin profile not found"
+            )
+
+        doctor = connection.execute(
+            text("""
+                SELECT id, hospital_id, department_id
+                FROM doctors
+                WHERE id = :doctor_id
+                  AND hospital_id = :hospital_id
+            """),
+            {
+                "doctor_id": doctor_id,
+                "hospital_id": hospital.hospital_id
+            }
+        ).fetchone()
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor not found in your hospital"
+            )
+
+        appointments = connection.execute(
+            text("""
+                SELECT id, appointment_date
+                FROM appointments
+                WHERE doctor_id = :doctor_id
+                  AND status = 'scheduled'
+                  AND appointment_date > NOW()
+                ORDER BY appointment_date
+            """),
+            {"doctor_id": doctor_id}
+        ).fetchall()
+
+        previews = []
+
+        for appointment in appointments:
+            busy_rows = connection.execute(
+                text("""
+                    SELECT doctor_id
+                    FROM appointments
+                    WHERE appointment_date = :appointment_date
+                      AND status = 'scheduled'
+                """),
+                {"appointment_date": appointment.appointment_date}
+            ).fetchall()
+
+            busy_ids = {row.doctor_id for row in busy_rows}
+
+            candidates = connection.execute(
+                text("""
+                    SELECT d.id,
+                           (SELECT COUNT(*)
+                            FROM appointments a
+                            WHERE a.doctor_id = d.id
+                              AND a.status = 'scheduled') AS workload
+                    FROM doctors d
+                    WHERE d.hospital_id = :hospital_id
+                      AND d.department_id = :department_id
+                      AND d.is_active = TRUE
+                      AND d.id != :doctor_id
+                """),
+                {
+                    "hospital_id": doctor.hospital_id,
+                    "department_id": doctor.department_id,
+                    "doctor_id": doctor_id
+                }
+            ).fetchall()
+
+            replacement = optimize_replacement_doctor(
+                [
+                    {
+                        "id": row.id,
+                        "workload": row.workload,
+                        "is_active": True
+                    }
+                    for row in candidates
+                ],
+                busy_ids
+            )
+
+            previews.append({
+                "appointment_id": appointment.id,
+                "appointment_date": str(appointment.appointment_date),
+                "replacement_doctor_id": replacement,
+                "can_reassign": replacement is not None
+            })
+
+    return {
+        "doctor_id": doctor_id,
+        "appointments_checked": len(previews),
+        "previews": previews
     }

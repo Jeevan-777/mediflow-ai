@@ -3,6 +3,7 @@ import "./DoctorDashboard.css";
 import DoctorAppointments from "./DoctorAppointments";
 import doctorAvatar from "../assets/doctor_avatar.png";
 import doctorBanner from "../assets/doctor_banner.png";
+import DoctorPatients from "./DoctorPatients";
 
 function DoctorDashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -98,7 +99,12 @@ function DoctorDashboard() {
             Appointments
           </button>
 
-          <button className="sidebar-item">
+          <button
+            className={`sidebar-item ${
+              activePage === "patients" ? "active" : ""
+            }`}
+            onClick={() => setActivePage("patients")}
+          >
             <span>♟</span>
             Patients
           </button>
@@ -128,6 +134,8 @@ function DoctorDashboard() {
       <main className="doctor-main">
         {activePage === "appointments" ? (
           <DoctorAppointments />
+        ) : activePage === "patients" ? (
+          <DoctorPatients />
         ) : (
           <>
             {/* LEFT CONTENT */}

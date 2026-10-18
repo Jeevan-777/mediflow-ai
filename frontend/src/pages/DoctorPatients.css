@@ -1,0 +1,187 @@
+.doctor-patients-page {
+  width: 100%;
+  color: #243447;
+}
+
+.doctor-patients-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.doctor-patients-header h1 {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: #1d344b;
+}
+
+.doctor-patients-header p {
+  margin: 7px 0 0;
+  color: #8493a3;
+  font-size: 15px;
+}
+
+.doctor-patients-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 28px;
+  align-items: stretch;
+  margin-top: 32px;
+}
+
+.doctor-patients-card {
+  background: white;
+  border: 1px solid #edf1f5;
+  border-radius: 18px;
+  box-shadow: 0 5px 20px rgba(35, 72, 100, 0.05);
+  overflow: hidden;
+  min-width: 0;
+}
+
+.doctor-patients-card-header {
+  padding: 22px 24px;
+  border-bottom: 1px solid #edf1f5;
+}
+
+.doctor-patients-card-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #273c50;
+}
+
+.doctor-patients-card-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #8493a3;
+}
+
+.doctor-patients-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.doctor-patients-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.doctor-patients-table th {
+  padding: 15px 18px;
+  text-align: left;
+  background: #f8fafc;
+  color: #71869a;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #e9eef2;
+  white-space: nowrap;
+}
+
+.doctor-patients-table td {
+  padding: 17px 18px;
+  color: #5f7182;
+  border-bottom: 1px solid #eef2f5;
+  white-space: nowrap;
+}
+
+.doctor-patients-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.doctor-patients-table tbody tr:hover {
+  background: #fbfdff;
+}
+
+.doctor-patients-table td strong {
+  color: #34495b;
+  font-size: 14px;
+}
+
+.doctor-patients-doctor {
+  min-height: 375px;
+  background: linear-gradient(180deg, #eef7ff 0%, #f8fbff 100%);
+  border: 1px solid #e2edf6;
+  border-radius: 18px;
+  box-shadow: 0 5px 20px rgba(35, 72, 100, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 25px;
+  overflow: hidden;
+}
+
+.doctor-patients-doctor img {
+  width: 260px;
+  height: 230px;
+  object-fit: contain;
+  margin-bottom: 5px;
+}
+
+.doctor-patients-doctor h2 {
+  margin: 0 0 8px;
+  color: #1d344b;
+  font-size: 21px;
+}
+
+.doctor-patients-doctor p {
+  margin: 0;
+  max-width: 220px;
+  color: #8493a3;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.doctor-patients-loading,
+.doctor-patients-empty {
+  padding: 55px 20px;
+  text-align: center;
+  color: #8493a3;
+  font-size: 14px;
+}
+
+@media (max-width: 1050px) {
+  .doctor-patients-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .doctor-patients-doctor {
+    min-height: 260px;
+  }
+
+  .doctor-patients-doctor img {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+@media (max-width: 800px) {
+  .doctor-patients-header h1 {
+    font-size: 27px;
+  }
+
+  .doctor-patients-layout {
+    margin-top: 25px;
+  }
+
+  .doctor-patients-card-header {
+    padding: 18px;
+  }
+
+  .doctor-patients-table th,
+  .doctor-patients-table td {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 550px) {
+  .doctor-patients-header h1 {
+    font-size: 24px;
+  }
+
+  .doctor-patients-header p {
+    font-size: 13px;
+  }
+}
