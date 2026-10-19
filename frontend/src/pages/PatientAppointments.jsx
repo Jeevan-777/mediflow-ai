@@ -66,20 +66,16 @@ const IconDoc = () => (
 
 /* ── Donut Chart ── */
 const DonutChart = ({ scheduled, completed, cancelled, total }) => {
-  if (total === 0) {
-    return <p className="no-data-text">No appointment data yet.</p>;
-  }
-
   const R = 38;
   const C = 2 * Math.PI * R;
 
-  const seg = (val) => (val / total) * C;
+  const seg = (val) => (total > 0 ? (val / total) * C : 0);
   const schedLen = seg(scheduled);
   const compLen  = seg(completed);
   const cancLen  = seg(cancelled);
 
   // offsets: each segment starts where previous ended, rotated from top
-  const schedOff = C;                        // starts at top (offset = full circumference)
+  const schedOff = C;
   const compOff  = C - schedLen;
   const cancOff  = C - schedLen - compLen;
 
@@ -88,45 +84,51 @@ const DonutChart = ({ scheduled, completed, cancelled, total }) => {
   return (
     <div className="donut-chart-wrapper">
       <div className="donut-svg-wrap">
-        <svg width="110" height="110" viewBox="0 0 100 100">
+        <svg width="124" height="124" viewBox="0 0 100 100" className="donut-svg" aria-label="Appointments Status Distribution">
           {/* track */}
-          <circle cx="50" cy="50" r={R} fill="none" stroke="#e8f4ff" strokeWidth="14"/>
+          <circle cx="50" cy="50" r={R} fill="none" stroke="#f1f5f9" strokeWidth="12" />
           {/* segments */}
           {cancelled > 0 && (
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#f87171" strokeWidth="14"
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#f87171" strokeWidth="12"
               strokeDasharray={`${cancLen} ${C}`} strokeDashoffset={cancOff}
+              strokeLinecap="round"
               transform="rotate(-90 50 50)"/>
           )}
           {completed > 0 && (
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#60a5fa" strokeWidth="14"
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#3b82f6" strokeWidth="12"
               strokeDasharray={`${compLen} ${C}`} strokeDashoffset={compOff}
+              strokeLinecap="round"
               transform="rotate(-90 50 50)"/>
           )}
           {scheduled > 0 && (
-            <circle cx="50" cy="50" r={R} fill="none" stroke="#34d399" strokeWidth="14"
+            <circle cx="50" cy="50" r={R} fill="none" stroke="#10b981" strokeWidth="12"
               strokeDasharray={`${schedLen} ${C}`} strokeDashoffset={schedOff}
+              strokeLinecap="round"
               transform="rotate(-90 50 50)"/>
           )}
           {/* center text */}
-          <text x="50" y="44" textAnchor="middle" fontSize="20" fontWeight="700" fill="#1e3a5f">{total}</text>
-          <text x="50" y="60" textAnchor="middle" fontSize="11" fill="#64748b">Total</text>
+          <text x="50" y="47" textAnchor="middle" className="donut-center-num">{total}</text>
+          <text x="50" y="63" textAnchor="middle" className="donut-center-label">TOTAL</text>
         </svg>
       </div>
       <div className="donut-legend">
         <div className="legend-row">
-          <span className="legend-dot" style={{background:'#34d399'}}/>
+          <span className="legend-dot legend-dot--sched" />
           <span className="legend-name">Scheduled</span>
-          <span className="legend-stat">{scheduled} ({pct(scheduled)}%)</span>
+          <span className="legend-stat">{scheduled}</span>
+          <span className="legend-pct">{pct(scheduled)}%</span>
         </div>
         <div className="legend-row">
-          <span className="legend-dot" style={{background:'#60a5fa'}}/>
+          <span className="legend-dot legend-dot--comp" />
           <span className="legend-name">Completed</span>
-          <span className="legend-stat">{completed} ({pct(completed)}%)</span>
+          <span className="legend-stat">{completed}</span>
+          <span className="legend-pct">{pct(completed)}%</span>
         </div>
         <div className="legend-row">
-          <span className="legend-dot" style={{background:'#f87171'}}/>
+          <span className="legend-dot legend-dot--canc" />
           <span className="legend-name">Cancelled</span>
-          <span className="legend-stat">{cancelled} ({pct(cancelled)}%)</span>
+          <span className="legend-stat">{cancelled}</span>
+          <span className="legend-pct">{pct(cancelled)}%</span>
         </div>
       </div>
     </div>
@@ -195,38 +197,41 @@ export default function PatientAppointments({ onBackToDashboard }) {
         {/* ── Stats Row ── */}
         <div className="ap-stats-row">
           <div className="ap-stats-group">
-            <div className="stat-card">
+            <div className="stat-card stat-card--total">
               <span className="stat-icon stat-icon--total"><IconCalendar/></span>
-              <div>
-                <p className="stat-label">Total Appointments</p>
-                <p className="stat-number">{total}</p>
+              <div className="stat-info">
+                <span className="stat-label">Total Appointments</span>
+                <span className="stat-number" style={{ fontSize: "38px", fontWeight: 800, color: "#0f2d52", lineHeight: 1.05 }}>{total}</span>
               </div>
             </div>
-            <div className="stat-card">
+            <div className="stat-card stat-card--sched">
               <span className="stat-icon stat-icon--sched"><IconHourglass/></span>
-              <div>
-                <p className="stat-label">Scheduled</p>
-                <p className="stat-number">{scheduled}</p>
+              <div className="stat-info">
+                <span className="stat-label">Scheduled</span>
+                <span className="stat-number" style={{ fontSize: "38px", fontWeight: 800, color: "#0f2d52", lineHeight: 1.05 }}>{scheduled}</span>
               </div>
             </div>
-            <div className="stat-card">
+            <div className="stat-card stat-card--comp">
               <span className="stat-icon stat-icon--comp"><IconCheck/></span>
-              <div>
-                <p className="stat-label">Completed</p>
-                <p className="stat-number">{completed}</p>
+              <div className="stat-info">
+                <span className="stat-label">Completed</span>
+                <span className="stat-number" style={{ fontSize: "38px", fontWeight: 800, color: "#0f2d52", lineHeight: 1.05 }}>{completed}</span>
               </div>
             </div>
-            <div className="stat-card">
+            <div className="stat-card stat-card--canc">
               <span className="stat-icon stat-icon--canc"><IconX/></span>
-              <div>
-                <p className="stat-label">Cancelled</p>
-                <p className="stat-number">{cancelled}</p>
+              <div className="stat-info">
+                <span className="stat-label">Cancelled</span>
+                <span className="stat-number" style={{ fontSize: "38px", fontWeight: 800, color: "#0f2d52", lineHeight: 1.05 }}>{cancelled}</span>
               </div>
             </div>
           </div>
 
           <div className="ap-overview-card">
-            <p className="overview-title">Appointments Overview</p>
+            <div className="overview-header">
+              <p className="overview-title">Appointments Overview</p>
+              <span className="overview-badge">{total} Total</span>
+            </div>
             <DonutChart
               scheduled={scheduled}
               completed={completed}

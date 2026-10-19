@@ -35,9 +35,7 @@ def create_appointment(
                     FROM patients
                     WHERE user_id = :user_id
                 """),
-                {
-                    "user_id": current_user["user_id"]
-                }
+                {"user_id": current_user["user_id"]}
             ).fetchone()
 
             if not patient:
@@ -52,9 +50,7 @@ def create_appointment(
                     FROM hospitals
                     WHERE id = :hospital_id
                 """),
-                {
-                    "hospital_id": appointment.hospital_id
-                }
+                {"hospital_id": appointment.hospital_id}
             ).fetchone()
 
             if not hospital:
@@ -69,6 +65,7 @@ def create_appointment(
                         doctors.id,
                         users.name AS doctor_name,
                         doctors.hospital_id,
+                        doctors.is_active,
                         departments.name AS department
                     FROM doctors
                     JOIN users
@@ -77,9 +74,7 @@ def create_appointment(
                         ON doctors.department_id = departments.id
                     WHERE doctors.id = :doctor_id
                 """),
-                {
-                    "doctor_id": appointment.doctor_id
-                }
+                {"doctor_id": appointment.doctor_id}
             ).fetchone()
 
             if not doctor:
@@ -92,6 +87,36 @@ def create_appointment(
                 raise HTTPException(
                     status_code=400,
                     detail="Selected doctor does not belong to the selected hospital"
+                )
+
+            if not doctor.is_active:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This doctor is inactive. Please select another doctor."
+                )
+
+            unavailable = connection.execute(
+                text("""
+                    SELECT id
+                    FROM doctor_unavailability
+                    WHERE doctor_id = :doctor_id
+                      AND start_at <= :appointment_date
+                      AND end_at > :appointment_date
+                    LIMIT 1
+                """),
+                {
+                    "doctor_id": appointment.doctor_id,
+                    "appointment_date": appointment.appointment_date
+                }
+            ).fetchone()
+
+            if unavailable:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "This doctor is unavailable at the selected time. "
+                        "Please select another doctor or time."
+                    )
                 )
 
             connection.execute(
@@ -138,7 +163,6 @@ def create_appointment(
             status_code=400,
             detail="Doctor already has an appointment at this time"
         )
-
 
 @router.get("/")
 def get_appointments():

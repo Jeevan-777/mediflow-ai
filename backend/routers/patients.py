@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends
+import re
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy import text
 from database import engine
 from dependencies import require_role
@@ -174,3 +177,133 @@ def get_patient_dashboard(
         "completed_appointments": patient_result.completed_appointments,
         "appointments": appointments
     }
+
+
+# ── Profile Pydantic model ──────────────────────────────────────────────────
+
+class ProfileUpdateRequest(BaseModel):
+    name: str
+    email: str
+    date_of_birth: Optional[str] = None   # ISO date string, e.g. "1990-05-15"
+    gender: Optional[str] = None          # "male" | "female" | "other"
+    phone: Optional[str] = None
+
+_EMAIL_RE = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+
+
+# ── GET /patients/me ────────────────────────────────────────────────────────
+
+@router.get("/me")
+def get_my_profile(current_user=Depends(require_role("patient"))):
+    """Return the currently-authenticated patient's own profile.
+    The identity is taken exclusively from the verified JWT, never from
+    a caller-supplied user ID.
+    """
+    with engine.connect() as connection:
+        row = connection.execute(
+            text("""
+                SELECT
+                    users.name,
+                    users.email,
+                    patients.date_of_birth,
+                    patients.gender,
+                    patients.phone
+                FROM patients
+                JOIN users ON patients.user_id = users.id
+                WHERE patients.user_id = :user_id
+            """),
+            {"user_id": current_user["user_id"]}
+        ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    return {
+        "name": row.name,
+        "email": row.email,
+        "date_of_birth": str(row.date_of_birth) if row.date_of_birth else None,
+        "gender": row.gender,
+        "phone": row.phone,
+    }
+
+
+# ── PUT /patients/me ────────────────────────────────────────────────────────
+
+@router.put("/me")
+def update_my_profile(
+    profile: ProfileUpdateRequest,
+    current_user=Depends(require_role("patient"))
+):
+    """Update the currently-authenticated patient's own profile.
+    Only name, email, date_of_birth, gender, and phone may be changed.
+    Password, role, and account IDs are never altered here.
+    """
+    # Validate name
+    if not profile.name.strip():
+        raise HTTPException(status_code=422, detail="Name cannot be blank")
+
+    # Validate email format
+    if not profile.email.strip() or not _EMAIL_RE.match(profile.email.strip()):
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    profile.email = profile.email.strip()
+
+    # Validate optional gender value
+    if profile.gender and profile.gender not in ("male", "female", "other"):
+        raise HTTPException(
+            status_code=422,
+            detail="gender must be 'male', 'female', or 'other'"
+        )
+
+    # Validate optional phone length
+    if profile.phone and len(profile.phone) > 20:
+        raise HTTPException(status_code=422, detail="Phone number too long")
+
+    with engine.begin() as connection:
+        # Check if another user already owns the requested email
+        conflict = connection.execute(
+            text("""
+                SELECT id FROM users
+                WHERE email = :email AND id != :user_id
+            """),
+            {"email": profile.email, "user_id": current_user["user_id"]}
+        ).fetchone()
+
+        if conflict:
+            raise HTTPException(
+                status_code=409,
+                detail="Email is already registered to another account"
+            )
+
+        # Update the users table (name + email only — no password/role)
+        connection.execute(
+            text("""
+                UPDATE users
+                SET name  = :name,
+                    email = :email
+                WHERE id  = :user_id
+            """),
+            {
+                "name": profile.name.strip(),
+                "email": profile.email,
+                "user_id": current_user["user_id"],
+            }
+        )
+
+        # Update the patients table (date_of_birth, gender, phone)
+        connection.execute(
+            text("""
+                UPDATE patients
+                SET date_of_birth = :dob,
+                    gender        = :gender,
+                    phone         = :phone
+                WHERE user_id = :user_id
+            """),
+            {
+                "dob":     profile.date_of_birth or None,
+                "gender":  profile.gender or None,
+                "phone":   profile.phone or None,
+                "user_id": current_user["user_id"],
+            }
+        )
+
+    return {"message": "Profile updated successfully"}

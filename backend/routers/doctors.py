@@ -6,6 +6,8 @@ from database import engine
 from dependencies import require_role
 from auth import hash_password
 from scheduler import optimize_replacement_doctor
+from datetime import datetime
+from pydantic import BaseModel
 
 router = APIRouter(
     prefix="/doctors",
@@ -945,4 +947,240 @@ def preview_rescheduling(
         "doctor_id": doctor_id,
         "appointments_checked": len(previews),
         "previews": previews
+    }
+
+
+class UnavailabilityCreate(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    reason: str | None = None
+
+
+
+@router.post("/hospital/{doctor_id}/unavailability")
+def mark_doctor_unavailable(
+    doctor_id: int,
+    data: UnavailabilityCreate,
+    current_user=Depends(require_role("hospital_admin"))
+):
+    if data.end_at <= data.start_at:
+        raise HTTPException(
+            status_code=400,
+            detail="End time must be after start time"
+        )
+
+    reassigned = []
+
+    with engine.begin() as connection:
+        hospital = connection.execute(
+            text("""
+                SELECT hospital_id
+                FROM hospital_admins
+                WHERE user_id = :user_id
+            """),
+            {"user_id": current_user["user_id"]}
+        ).fetchone()
+
+        if not hospital:
+            raise HTTPException(
+                status_code=404,
+                detail="Hospital admin profile not found"
+            )
+
+        doctor = connection.execute(
+            text("""
+                SELECT id, hospital_id, department_id, is_active
+                FROM doctors
+                WHERE id = :doctor_id
+                  AND hospital_id = :hospital_id
+                FOR UPDATE
+            """),
+            {
+                "doctor_id": doctor_id,
+                "hospital_id": hospital.hospital_id
+            }
+        ).fetchone()
+
+        if not doctor:
+            raise HTTPException(
+                status_code=404,
+                detail="Doctor not found in your hospital"
+            )
+
+        if not doctor.is_active:
+            raise HTTPException(
+                status_code=400,
+                detail="Inactive doctors cannot be marked unavailable"
+            )
+
+        overlapping = connection.execute(
+            text("""
+                SELECT id
+                FROM doctor_unavailability
+                WHERE doctor_id = :doctor_id
+                  AND start_at < :end_at
+                  AND end_at > :start_at
+                LIMIT 1
+            """),
+            {
+                "doctor_id": doctor_id,
+                "start_at": data.start_at,
+                "end_at": data.end_at
+            }
+        ).fetchone()
+
+        if overlapping:
+            raise HTTPException(
+                status_code=409,
+                detail="This period overlaps existing unavailability"
+            )
+
+        appointments = connection.execute(
+            text("""
+                SELECT id, appointment_date
+                FROM appointments
+                WHERE doctor_id = :doctor_id
+                  AND status = 'scheduled'
+                  AND appointment_date >= :start_at
+                  AND appointment_date < :end_at
+                  AND appointment_date > NOW()
+                ORDER BY appointment_date, id
+                FOR UPDATE
+            """),
+            {
+                "doctor_id": doctor_id,
+                "start_at": data.start_at,
+                "end_at": data.end_at
+            }
+        ).fetchall()
+
+        for appointment in appointments:
+            busy_rows = connection.execute(
+                text("""
+                    SELECT doctor_id
+                    FROM appointments
+                    WHERE appointment_date = :appointment_date
+                      AND status = 'scheduled'
+                """),
+                {"appointment_date": appointment.appointment_date}
+            ).fetchall()
+
+            busy_doctor_ids = {
+                row.doctor_id for row in busy_rows
+            }
+            busy_doctor_ids.add(doctor_id)
+
+            candidates = connection.execute(
+                text("""
+                    SELECT
+                        d.id,
+                        (
+                            SELECT COUNT(*)
+                            FROM appointments a
+                            WHERE a.doctor_id = d.id
+                              AND a.status = 'scheduled'
+                        ) AS workload
+                    FROM doctors d
+                    WHERE d.hospital_id = :hospital_id
+                      AND d.department_id = :department_id
+                      AND d.is_active = TRUE
+                      AND d.id != :doctor_id
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM doctor_unavailability du
+                          WHERE du.doctor_id = d.id
+                            AND du.start_at < :appointment_end
+                            AND du.end_at > :appointment_date
+                      )
+                """),
+                {
+                    "hospital_id": doctor.hospital_id,
+                    "department_id": doctor.department_id,
+                    "doctor_id": doctor_id,
+                    "appointment_date": appointment.appointment_date,
+                    "appointment_end": appointment.appointment_date
+                }
+            ).fetchall()
+
+            replacement_doctor_id = optimize_replacement_doctor(
+                [
+                    {
+                        "id": row.id,
+                        "workload": row.workload,
+                        "is_active": True
+                    }
+                    for row in candidates
+                ],
+                busy_doctor_ids
+            )
+
+            if replacement_doctor_id is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"No replacement available for appointment "
+                        f"{appointment.id}. No changes were saved."
+                    )
+                )
+
+            result = connection.execute(
+                text("""
+                    UPDATE appointments
+                    SET doctor_id = :replacement_id,
+                        original_doctor_id =
+                            COALESCE(original_doctor_id, :old_doctor_id),
+                        reassignment_reason = 'Temporary doctor unavailability',
+                        reassigned_at = CURRENT_TIMESTAMP
+                    WHERE id = :appointment_id
+                      AND doctor_id = :old_doctor_id
+                      AND status = 'scheduled'
+                """),
+                {
+                    "replacement_id": replacement_doctor_id,
+                    "old_doctor_id": doctor_id,
+                    "appointment_id": appointment.id
+                }
+            )
+
+            if result.rowcount != 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Appointment {appointment.id} changed during "
+                        "reassignment. No changes were saved."
+                    )
+                )
+
+            reassigned.append({
+                "appointment_id": appointment.id,
+                "new_doctor_id": replacement_doctor_id,
+                "appointment_date": appointment.appointment_date.isoformat()
+            })
+
+        result = connection.execute(
+            text("""
+                INSERT INTO doctor_unavailability
+                    (doctor_id, start_at, end_at, reason, created_by)
+                VALUES
+                    (:doctor_id, :start_at, :end_at, :reason, :created_by)
+            """),
+            {
+                "doctor_id": doctor_id,
+                "start_at": data.start_at,
+                "end_at": data.end_at,
+                "reason": data.reason,
+                "created_by": current_user["user_id"]
+            }
+        )
+
+        unavailability_id = result.lastrowid
+
+    return {
+        "message": "Doctor unavailability recorded successfully",
+        "unavailability_id": unavailability_id,
+        "doctor_id": doctor_id,
+        "start_at": data.start_at.isoformat(),
+        "end_at": data.end_at.isoformat(),
+        "reassigned_count": len(reassigned),
+        "reassigned_appointments": reassigned
     }

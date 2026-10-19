@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import "./PatientDashboard.css";
 import patientDashboard from "../assets/PatientDashboard.png";
 import PatientAppointments from "./PatientAppointments";
+import PatientProfile from "./PatientProfile";
 
 function PatientDashboard() {
   const [patient, setPatient] = useState(null);
@@ -16,6 +17,9 @@ function PatientDashboard() {
   const [appointmentDate, setAppointmentDate] = useState("");
   const [appointmentTime, setAppointmentTime] = useState("");
   const [showAppointments, setShowAppointments] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [bookingError, setBookingError] = useState(null);
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     const fetchPatientDashboard = async () => {
@@ -159,6 +163,22 @@ function PatientDashboard() {
     );
   }
 
+  if (showProfile) {
+    return (
+      <PatientProfile
+        onBackToDashboard={() => {
+          /* Refresh dashboard name in case it was updated */
+          setPatient((prev) =>
+            prev
+              ? { ...prev, name: localStorage.getItem("name") || prev.name }
+              : prev
+          );
+          setShowProfile(false);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="patient-dashboard">
       {/* Decorative background image */}
@@ -228,7 +248,10 @@ function PatientDashboard() {
             My Appointments
           </button>
 
-          <button className="patient-nav-item">
+          <button
+            className="patient-nav-item"
+            onClick={() => setShowProfile(true)}
+          >
             <span className="nav-icon">
               <svg
                 viewBox="0 0 24 24"
@@ -571,13 +594,74 @@ function PatientDashboard() {
 
                 <button
                   className="book-recommended-button"
-                  onClick={() => setShowBookingForm(true)}
+                  onClick={() => {
+                    setShowBookingForm(true);
+                    setBookingError(null);
+                  }}
                 >
                   Book Appointment
                 </button>
                 {showBookingForm && (
                   <div className="booking-form">
                     <h3>Book Appointment</h3>
+
+                    {bookingError && (
+                      <div
+                        className="booking-error-alert"
+                        role="alert"
+                        style={{
+                          padding: "14px 16px",
+                          marginBottom: "16px",
+                          borderRadius: "12px",
+                          backgroundColor: "#fef2f2",
+                          border: "1px solid #fecaca",
+                          color: "#991b1b",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          <strong
+                            className="booking-error-title"
+                            style={{ fontSize: "14px", fontWeight: "700" }}
+                          >
+                            {bookingError.title}
+                          </strong>
+                          <button
+                            type="button"
+                            className="booking-error-close"
+                            onClick={() => setBookingError(null)}
+                            aria-label="Close error"
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              color: "#991b1b",
+                              fontSize: "18px",
+                              lineHeight: "1",
+                              cursor: "pointer",
+                              padding: "0 4px",
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div
+                          className="booking-error-message"
+                          style={{
+                            fontSize: "13px",
+                            lineHeight: "1.4",
+                            color: "#b91c1c",
+                          }}
+                        >
+                          {bookingError.message}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="booking-doctor">
                       <strong>Recommended Doctor</strong>
@@ -593,7 +677,10 @@ function PatientDashboard() {
                     <input
                       type="date"
                       value={appointmentDate}
-                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      onChange={(e) => {
+                        setAppointmentDate(e.target.value);
+                        if (bookingError) setBookingError(null);
+                      }}
                       min={new Date().toISOString().split("T")[0]}
                     />
 
@@ -601,24 +688,34 @@ function PatientDashboard() {
                     <input
                       type="time"
                       value={appointmentTime}
-                      onChange={(e) => setAppointmentTime(e.target.value)}
+                      onChange={(e) => {
+                        setAppointmentTime(e.target.value);
+                        if (bookingError) setBookingError(null);
+                      }}
                     />
 
                     <div className="booking-actions">
                       <button
                         className="cancel-booking-button"
-                        onClick={() => setShowBookingForm(false)}
+                        onClick={() => {
+                          setShowBookingForm(false);
+                          setBookingError(null);
+                        }}
                       >
                         Cancel
                       </button>
 
                       <button
                         className="confirm-booking-button"
+                        disabled={bookingLoading}
                         onClick={async () => {
                           if (!appointmentDate || !appointmentTime) {
                             alert("Please select appointment date and time.");
                             return;
                           }
+
+                          setBookingLoading(true);
+                          setBookingError(null);
 
                           try {
                             const token = localStorage.getItem("access_token");
@@ -646,25 +743,60 @@ function PatientDashboard() {
                             const data = await response.json();
 
                             if (!response.ok) {
-                              throw new Error(
-                                data.detail || "Failed to book appointment",
-                              );
+                              let errorMessage = "Failed to book appointment";
+                              if (typeof data.detail === "string") {
+                                errorMessage = data.detail;
+                              } else if (Array.isArray(data.detail)) {
+                                errorMessage = data.detail
+                                  .map((err) => err.msg || JSON.stringify(err))
+                                  .join(", ");
+                              } else if (
+                                data.detail &&
+                                typeof data.detail === "object"
+                              ) {
+                                errorMessage =
+                                  data.detail.msg || JSON.stringify(data.detail);
+                              } else if (typeof data.message === "string") {
+                                errorMessage = data.message;
+                              }
+
+                              const isUnavailable =
+                                errorMessage
+                                  .toLowerCase()
+                                  .includes("unavailable") ||
+                                errorMessage
+                                  .toLowerCase()
+                                  .includes("select another doctor");
+
+                              setBookingError({
+                                title: isUnavailable
+                                  ? "Doctor unavailable"
+                                  : "Booking Failed",
+                                message: errorMessage,
+                              });
+
+                              return;
                             }
 
                             alert("Appointment booked successfully! 🎉");
 
+                            setBookingError(null);
                             setShowBookingForm(false);
                             setAppointmentDate("");
                             setAppointmentTime("");
                           } catch (error) {
                             console.error("Booking error:", error);
-                            alert(
-                              error.message || "Unable to book appointment.",
-                            );
+                            setBookingError({
+                              title: "Booking Error",
+                              message:
+                                error.message || "Unable to book appointment.",
+                            });
+                          } finally {
+                            setBookingLoading(false);
                           }
                         }}
                       >
-                        Continue
+                        {bookingLoading ? "Booking..." : "Continue"}
                       </button>
                     </div>
                   </div>
@@ -865,7 +997,7 @@ function PatientDashboard() {
               </span>
             </button>
 
-            <button className="help-item">
+            <button className="help-item" onClick={() => setShowProfile(true)}>
               <div className="help-icon">
                 <svg
                   viewBox="0 0 24 24"
