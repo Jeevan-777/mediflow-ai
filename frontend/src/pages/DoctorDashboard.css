@@ -125,6 +125,13 @@
   min-width: 0;
 }
 
+.doctor-main.doctor-main-fullwidth {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  width: 100%;
+}
+
 .doctor-content {
   min-width: 0;
 }

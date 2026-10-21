@@ -3,6 +3,7 @@ import "./PatientDashboard.css";
 import patientDashboard from "../assets/PatientDashboard.png";
 import PatientAppointments from "./PatientAppointments";
 import PatientProfile from "./PatientProfile";
+import PatientMessages from "./PatientMessages";
 
 function PatientDashboard() {
   const [patient, setPatient] = useState(null);
@@ -18,6 +19,7 @@ function PatientDashboard() {
   const [appointmentTime, setAppointmentTime] = useState("");
   const [showAppointments, setShowAppointments] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [bookingError, setBookingError] = useState(null);
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -179,6 +181,22 @@ function PatientDashboard() {
     );
   }
 
+  if (showMessages) {
+    return (
+      <PatientMessages
+        onBackToDashboard={() => setShowMessages(false)}
+        onNavigateAppointments={() => {
+          setShowMessages(false);
+          setShowAppointments(true);
+        }}
+        onNavigateProfile={() => {
+          setShowMessages(false);
+          setShowProfile(true);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="patient-dashboard">
       {/* Decorative background image */}
@@ -266,6 +284,25 @@ function PatientDashboard() {
               </svg>
             </span>
             Profile
+          </button>
+
+          <button
+            className="patient-nav-item"
+            onClick={() => setShowMessages(true)}
+          >
+            <span className="nav-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </span>
+            Messages
           </button>
         </nav>
 

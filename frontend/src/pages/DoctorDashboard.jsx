@@ -5,6 +5,7 @@ import doctorAvatar from "../assets/doctor_avatar.png";
 import doctorBanner from "../assets/doctor_banner.png";
 import DoctorPatients from "./DoctorPatients";
 import DoctorProfile from "./DoctorProfile";
+import DoctorMessages from "./DoctorMessages";
 
 function DoctorDashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -120,7 +121,12 @@ function DoctorDashboard() {
             Profile
           </button>
 
-          <button className="sidebar-item">
+          <button
+            className={`sidebar-item ${
+              activePage === "messages" ? "active" : ""
+            }`}
+            onClick={() => setActivePage("messages")}
+          >
             <span>✉</span>
             Messages
           </button>
@@ -137,13 +143,19 @@ function DoctorDashboard() {
       </aside>
 
       {/* MAIN */}
-      <main className="doctor-main">
+      <main
+        className={`doctor-main ${
+          activePage !== "dashboard" ? "doctor-main-fullwidth" : ""
+        }`}
+      >
         {activePage === "appointments" ? (
           <DoctorAppointments />
         ) : activePage === "patients" ? (
           <DoctorPatients />
         ) : activePage === "profile" ? (
           <DoctorProfile onBackToDashboard={() => setActivePage("dashboard")} />
+        ) : activePage === "messages" ? (
+          <DoctorMessages />
         ) : (
           <>
             {/* LEFT CONTENT */}
