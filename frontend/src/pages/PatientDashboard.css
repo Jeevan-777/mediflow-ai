@@ -247,6 +247,425 @@
   height: 18px;
 }
 
+/* ================================================
+   PATIENT NOTIFICATIONS
+   ================================================ */
+
+.patient-notification-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.patient-notification-btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(190, 220, 240, 0.9);
+  background: #ffffff;
+  color: #334e68;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(15, 45, 74, 0.05);
+}
+
+.patient-notification-btn:hover,
+.patient-notification-btn.active {
+  background: #f0f7ff;
+  border-color: #1d6fb8;
+  color: #1d6fb8;
+  box-shadow: 0 3px 10px rgba(29, 111, 184, 0.15);
+}
+
+.patient-notification-bell-icon {
+  width: 19px;
+  height: 19px;
+  transition: transform 0.2s ease;
+}
+
+.patient-notification-btn:hover .patient-notification-bell-icon {
+  transform: rotate(8deg);
+}
+
+.patient-notification-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(239, 68, 68, 0.4);
+  animation: pulseBadge 2s infinite ease-in-out;
+}
+
+@keyframes pulseBadge {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* Notification Panel Dropdown */
+.patient-notification-panel {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  max-height: 480px;
+  background: #ffffff;
+  border: 1px solid #d4e5f5;
+  border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(15, 52, 86, 0.16), 0 2px 8px rgba(15, 52, 86, 0.06);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.notification-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef4fb;
+  background: linear-gradient(180deg, #fafdff 0%, #ffffff 100%);
+  flex-shrink: 0;
+}
+
+.notification-panel-title-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-panel-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f3456;
+}
+
+.notification-unread-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1d6fb8;
+  background: #e0f0ff;
+  border-radius: 12px;
+  padding: 2px 8px;
+  letter-spacing: -0.2px;
+}
+
+.notification-panel-close-btn {
+  background: transparent;
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notification-panel-close-btn:hover {
+  background: #eef4fb;
+  color: #0f3456;
+}
+
+.notification-panel-close-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.notification-panel-body {
+  overflow-y: auto;
+  max-height: 400px;
+  flex: 1;
+}
+
+.notification-panel-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-panel-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.notification-panel-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: #64748b;
+  font-size: 13.5px;
+}
+
+.notification-spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid #dbeafe;
+  border-top-color: #1d6fb8;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.notification-panel-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  gap: 8px;
+}
+
+.notification-error-icon {
+  width: 32px;
+  height: 32px;
+  color: #ef4444;
+}
+
+.notification-panel-error p {
+  margin: 0;
+  font-size: 13px;
+  color: #b91c1c;
+}
+
+.notification-retry-btn {
+  margin-top: 6px;
+  padding: 6px 14px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334e68;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notification-retry-btn:hover {
+  background: #e2e8f0;
+}
+
+.notification-panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.notification-empty-icon-wrap {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #eef7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1d6fb8;
+  margin-bottom: 12px;
+}
+
+.notification-empty-icon-wrap svg {
+  width: 26px;
+  height: 26px;
+}
+
+.notification-empty-title {
+  margin: 0 0 4px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #1e3a5f;
+}
+
+.notification-empty-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: #64748b;
+  line-height: 1.45;
+  max-width: 240px;
+}
+
+/* Notification List */
+.notification-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background-color 0.18s ease, transform 0.15s ease;
+  position: relative;
+  outline: none;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background-color: #f7fafc;
+}
+
+.notification-item:focus-visible {
+  background-color: #f0f7ff;
+  outline: 2px solid #1d6fb8;
+  outline-offset: -2px;
+}
+
+.notification-item.unread {
+  background-color: #f0f8ff;
+}
+
+.notification-item.unread:hover {
+  background-color: #e6f3ff;
+}
+
+.notification-item.unread::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3.5px;
+  background: #1d6fb8;
+}
+
+.notification-item.marking {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.notification-item-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.notification-item.read .notification-item-icon {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.notification-item-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.notification-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.notification-item-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f3456;
+  line-height: 1.35;
+}
+
+.notification-item.read .notification-item-title {
+  color: #475569;
+  font-weight: 600;
+}
+
+.notification-unread-dot {
+  width: 7.5px;
+  height: 7.5px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.notification-item-message {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  color: #334e68;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.notification-item.read .notification-item-message {
+  color: #64748b;
+}
+
+.notification-item-date {
+  display: block;
+  font-size: 11px;
+  color: #8da4be;
+  font-weight: 500;
+}
+
 .patient-header-divider {
   width: 1px;
   height: 22px;
@@ -961,6 +1380,16 @@
 
   .patient-header-title span {
     font-size: 14px;
+  }
+
+  .patient-notification-panel {
+    position: fixed;
+    top: 68px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 84px);
   }
 }
 

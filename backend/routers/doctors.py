@@ -32,6 +32,59 @@ class DoctorUpdate(BaseModel):
     experience_years: int | None = None
 
 
+def create_reassignment_notification(
+    connection,
+    appointment_id: int,
+    replacement_doctor_id: int,
+    reason: str
+):
+    details = connection.execute(
+        text("""
+            SELECT
+                a.patient_id,
+                p.user_id AS patient_user_id,
+                a.appointment_date,
+                u.name AS doctor_name
+            FROM appointments a
+            JOIN patients p ON p.id = a.patient_id
+            JOIN doctors d ON d.id = :doctor_id
+            JOIN users u ON u.id = d.user_id
+            WHERE a.id = :appointment_id
+        """),
+        {
+            "appointment_id": appointment_id,
+            "doctor_id": replacement_doctor_id
+        }
+    ).fetchone()
+
+    if not details:
+        raise HTTPException(
+            status_code=500,
+            detail="Could not create appointment notification"
+        )
+
+    connection.execute(
+        text("""
+            INSERT INTO notifications
+                (user_id, appointment_id, title, message, type)
+            VALUES
+                (:user_id, :appointment_id, :title, :message,
+                 'appointment_update')
+        """),
+        {
+            "user_id": details.patient_user_id,
+            "appointment_id": appointment_id,
+            "title": "Appointment Updated",
+            "message": (
+                f"Your appointment on "
+                f"{details.appointment_date.strftime('%d %b %Y, %I:%M %p')} "
+                f"has been reassigned to {details.doctor_name}. "
+                f"Reason: {reason}."
+            )
+        }
+    )
+
+
 @router.get("/")
 def get_doctors():
     with engine.connect() as connection:
@@ -500,6 +553,12 @@ def deactivate_doctor(
                     "appointment_id": appointment.id,
                     "new_doctor_id": replacement_id
                 })
+                create_reassignment_notification(
+                    connection=connection,
+                    appointment_id=appointment.id,
+                    replacement_doctor_id=replacement_id,
+                    reason="Doctor deactivated"
+                )
 
             connection.execute(
                 text("""
@@ -1156,6 +1215,12 @@ def mark_doctor_unavailable(
                 "new_doctor_id": replacement_doctor_id,
                 "appointment_date": appointment.appointment_date.isoformat()
             })
+            create_reassignment_notification(
+                connection=connection,
+                appointment_id=appointment.id,
+                replacement_doctor_id=replacement_doctor_id,
+                reason="Temporary doctor unavailability"
+            )
 
         result = connection.execute(
             text("""

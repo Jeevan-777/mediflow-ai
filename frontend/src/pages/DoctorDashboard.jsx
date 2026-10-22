@@ -189,7 +189,7 @@ function DoctorDashboard() {
                 <div className="welcome-text">
                   <p>Welcome back,</p>
 
-                  <h2>Dr. {doctor.name}</h2>
+                  <h2>{doctor.name}</h2>
 
                   <span>Have a productive day!</span>
                 </div>
@@ -297,7 +297,7 @@ function DoctorDashboard() {
                   className="doctor-avatar"
                 />
 
-                <h2>Dr. {doctor.name}</h2>
+                <h2>{doctor.name}</h2>
 
                 <p className="specialization">
                   {doctor.specialization || "Doctor"}

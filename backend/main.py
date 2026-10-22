@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from database import engine
 from routers import auth
-from routers import departments, doctors, patients, appointments, symptoms, messages
+from routers import departments, doctors, patients, appointments, symptoms, messages, notifications
 from routers import hospitals
 
 app = FastAPI()
@@ -29,6 +29,7 @@ app.include_router(symptoms.router)
 app.include_router(auth.router)
 app.include_router(hospitals.router)
 app.include_router(messages.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")

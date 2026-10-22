@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "./PatientDashboard.css";
 import patientDashboard from "../assets/PatientDashboard.png";
 import PatientAppointments from "./PatientAppointments";
@@ -22,6 +22,15 @@ function PatientDashboard() {
   const [showMessages, setShowMessages] = useState(false);
   const [bookingError, setBookingError] = useState(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  // Notification state
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState(null);
+  const [markingIds, setMarkingIds] = useState(new Set());
+  const notificationWrapperRef = useRef(null);
 
   useEffect(() => {
     const fetchPatientDashboard = async () => {
@@ -80,6 +89,162 @@ function PatientDashboard() {
 
     fetchHospitals();
   }, []);
+
+  const fetchUnreadCount = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    try {
+      const response = await fetch("http://127.0.0.1:8000/notifications/unread-count", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(typeof data.unread_count === "number" ? data.unread_count : 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch unread notification count:", err);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const response = await fetch("http://127.0.0.1:8000/notifications/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to load notifications");
+      }
+      setNotifications(Array.isArray(data) ? data : []);
+      // Also update unread count based on returned notifications or count endpoint
+      const unread = Array.isArray(data) ? data.filter((n) => !n.is_read).length : 0;
+      setUnreadCount(unread);
+    } catch (err) {
+      console.error("Failed to load notifications:", err);
+      setNotificationsError(err.message || "Unable to load notifications");
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    fetchNotifications();
+    fetchUnreadCount();
+  }, []);
+
+  // Close notifications panel on outside click or escape key
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationWrapperRef.current &&
+        !notificationWrapperRef.current.contains(event.target)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showNotifications]);
+
+  const toggleNotifications = () => {
+    if (!showNotifications) {
+      fetchNotifications();
+      fetchUnreadCount();
+      setShowNotifications(true);
+    } else {
+      setShowNotifications(false);
+    }
+  };
+
+  const handleMarkAsRead = async (notification) => {
+    if (!notification || notification.is_read) return;
+    if (markingIds.has(notification.id)) return;
+
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+
+    setMarkingIds((prev) => new Set(prev).add(notification.id));
+
+    try {
+      const response = await fetch(
+        `http://127.0.0.1:8000/notifications/${notification.id}/read`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || "Failed to mark as read");
+      }
+
+      // Update notifications state locally on success
+      setNotifications((prev) =>
+        prev.map((item) =>
+          item.id === notification.id ? { ...item, is_read: true } : item
+        )
+      );
+
+      // Decrement unread count
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    } finally {
+      setMarkingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(notification.id);
+        return next;
+      });
+    }
+  };
+
+  const formatNotificationDate = (dateString) => {
+    if (!dateString) return "";
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return d.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
@@ -335,6 +500,170 @@ function PatientDashboard() {
           <span className="patient-welcome">
             Welcome, <strong>{loading ? "..." : name}</strong>
           </span>
+
+          {/* Notifications Bell and Dropdown */}
+          <div className="patient-notification-wrapper" ref={notificationWrapperRef}>
+            <button
+              className={`patient-notification-btn ${showNotifications ? "active" : ""}`}
+              onClick={toggleNotifications}
+              aria-label="View notifications"
+              title="Notifications"
+              aria-expanded={showNotifications}
+              aria-haspopup="true"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="patient-notification-bell-icon"
+              >
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+              </svg>
+              {unreadCount > 0 && (
+                <span className="patient-notification-badge" aria-label={`${unreadCount} unread notifications`}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div
+                className="patient-notification-panel"
+                role="region"
+                aria-label="Notifications panel"
+              >
+                <div className="notification-panel-header">
+                  <div className="notification-panel-title-area">
+                    <h3 className="notification-panel-title">Notifications</h3>
+                    {unreadCount > 0 && (
+                      <span className="notification-unread-pill">
+                        {unreadCount} unread
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className="notification-panel-close-btn"
+                    onClick={() => setShowNotifications(false)}
+                    aria-label="Close notifications"
+                    title="Close"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="notification-panel-body">
+                  {notificationsLoading && notifications.length === 0 ? (
+                    <div className="notification-panel-loading">
+                      <div className="notification-spinner" />
+                      <span>Loading notifications...</span>
+                    </div>
+                  ) : notificationsError ? (
+                    <div className="notification-panel-error">
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="notification-error-icon"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <p>{notificationsError}</p>
+                      <button
+                        className="notification-retry-btn"
+                        onClick={fetchNotifications}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="notification-panel-empty">
+                      <div className="notification-empty-icon-wrap">
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                        </svg>
+                      </div>
+                      <p className="notification-empty-title">No notifications yet</p>
+                      <p className="notification-empty-subtitle">
+                        We'll alert you if your appointments or schedules change.
+                      </p>
+                    </div>
+                  ) : (
+                    <ul className="notification-list">
+                      {notifications.map((item) => (
+                        <li
+                          key={item.id}
+                          className={`notification-item ${item.is_read ? "read" : "unread"} ${markingIds.has(item.id) ? "marking" : ""}`}
+                          onClick={() => handleMarkAsRead(item)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleMarkAsRead(item);
+                            }
+                          }}
+                        >
+                          <div className="notification-item-icon">
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                              <path d="M9 12h6M9 16h6" />
+                            </svg>
+                          </div>
+                          <div className="notification-item-content">
+                            <div className="notification-item-top">
+                              <h4 className="notification-item-title">{item.title}</h4>
+                              {!item.is_read && (
+                                <span className="notification-unread-dot" title="Unread" />
+                              )}
+                            </div>
+                            <p className="notification-item-message">{item.message}</p>
+                            <span className="notification-item-date">
+                              {formatNotificationDate(item.created_at)}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="patient-avatar">
             <svg
